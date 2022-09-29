@@ -1,9 +1,14 @@
 # hydroqc
 
-Intégration des données de votre compte Hydro-Québec à votre système domotique (Home-Assistant, etc)
+A suite of open-source tools to access your Hydro-Quebec account information and use it in your home automation system.
 
-Integration of your Hydro-Quebec account to your home automation system (Home-Assistant, etc)
+Une suite d'outil open-source qui vous permet d'accéder à vos informations de compte Hydro-Québec et de les utiliser dans votre système de domotique.
+
+Works with / Supporte :
+- Home-Assistant
+- MQTT
 
 Documentation: [https://hydroqc.ca](https://hydroqc.ca)
 
 Source code: [https://gitlab.com/hydroqc](https://gitlab.com/hydroqc)
+
