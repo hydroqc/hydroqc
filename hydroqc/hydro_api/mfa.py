@@ -99,8 +99,9 @@ def extract_json_assignment(html: str, name: str) -> dict[str, Any] | None:
         elif char == "}":
             depth -= 1
             if depth == 0:
+                end = index + 1
                 try:
-                    parsed = json.loads(html[start : index + 1])
+                    parsed = json.loads(html[start:end])
                 except json.JSONDecodeError:
                     return None
                 if isinstance(parsed, dict):
@@ -384,9 +385,9 @@ class MFAChallenge:
             api=page.api,
             control_id=control.control_id if control is not None else None,
             send_fields=tuple(control.payload_fields("SendCode")) if control else (),
-            verify_fields=tuple(control.payload_fields("VerifyCode"))
-            if control
-            else (),
+            verify_fields=(
+                tuple(control.payload_fields("VerifyCode")) if control else ()
+            ),
             prefill=dict(page.prefill),
             tx=page.trans_id or query.get("tx"),
             policy=page.policy or query.get("p"),

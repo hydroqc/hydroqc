@@ -17,6 +17,7 @@ from hydroqc.contract.common import (
     check_outages_data_present,
 )
 from hydroqc.contract.contract_dpc import check_dpc_data_present
+from hydroqc.consts import LoginStatus
 from hydroqc.customer import Customer
 from hydroqc.error import HydroQcError, HydroQcHTTPError
 from hydroqc.peak.cpc.handler import CPCPeakHandler
@@ -65,7 +66,7 @@ class SubTestCommon:
         # Webuser
         webuser = WebUser("bad_username", "bad_password", verify_ssl=True)
         connected = await webuser.login()
-        assert connected is False, "Login should not work"
+        assert not connected, "Login should not work"
 
     @pytest_asyncio.fixture(loop_scope="session", scope="session")
     async def webuser(self) -> AsyncGenerator[WebUser]:
@@ -130,7 +131,7 @@ class SubTestCommon:
     async def test_good_credentials(self, webuser: WebUser) -> None:
         """Test credentials main."""
         connected = await webuser.login()
-        assert connected is True, "Login should work. Please check your credentials"
+        assert connected is LoginStatus.SUCCESS, "Login should work"
         await webuser.get_info()
 
     async def test_session(self, webuser: WebUser) -> None:
