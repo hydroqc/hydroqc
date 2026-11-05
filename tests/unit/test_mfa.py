@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from typing import Any, cast
 from urllib.parse import parse_qs
 
@@ -12,11 +13,13 @@ import pytest
 import yarl
 
 from hydroqc.consts import LoginStatus
+from hydroqc.hydro_api.client import HydroClient
 from hydroqc.hydro_api.mfa import (
     B2CPage,
     MFAChallenge,
     MFAKind,
     call_succeeded,
+    clear_transaction_cookies,
     looks_expired,
     restore_cookies,
     send_code_requests,
@@ -96,6 +99,7 @@ class FakeResponse:
 
     async def json(self, content_type: str | None = None) -> Any:
         """Return the decoded body."""
+        del content_type
         return json.loads(self._text)
 
 
@@ -159,8 +163,6 @@ def _async_noop_session(client: Any) -> Callable[[], Any]:
 
 def build_client(transport: ScriptedTransport, **kwargs: Any) -> Any:
     """Create a :class:`HydroClient` wired to ``transport``."""
-    from hydroqc.hydro_api.client import HydroClient
-
     client = HydroClient("me@example.com", "secret", verify_ssl=True, **kwargs)
     client.http_request = transport.request  # type: ignore[assignment]
     client._get_httpsession = _async_noop_session(client)  # type: ignore[method-assign]
@@ -251,7 +253,7 @@ def test_page_settings_are_parsed() -> None:
     assert page.control is None
 
 
-def test_verification_page_exposes_nested_control_fields() -> None:
+def test_verification_page_exposes_fields() -> None:
     """The whole point of the live flow: fields live inside the display control."""
     page = B2CPage.from_html(MFA_PAGE_HTML)
     assert page.fields == {
@@ -289,7 +291,7 @@ def test_verification_challenge_from_page() -> None:
     assert challenge.csrf == "mfa-csrf"
 
 
-def test_display_control_requests_match_the_browser() -> None:
+def test_display_control_requests_match() -> None:
     """SendCode and VerifyCode POST the form B2C's display control expects."""
     page = B2CPage.from_html(MFA_PAGE_HTML)
     challenge = MFAChallenge.from_page(
@@ -319,7 +321,7 @@ def test_display_control_requests_match_the_browser() -> None:
     }
 
 
-def test_challenge_from_legacy_display_control_redirect() -> None:
+def test_challenge_from_legacy_redirect() -> None:
     """Older policies redirect to a DisplayControl page without a control id."""
     challenge = MFAChallenge.from_redirect(
         b2c_url("DisplayControl?tx=tx-1&p=B2C_1A_PRD_signup_signin")
@@ -327,7 +329,7 @@ def test_challenge_from_legacy_display_control_redirect() -> None:
     assert challenge is not None
     assert challenge.kind is MFAKind.DISPLAY_CONTROL
     assert challenge.control_id is None
-    assert challenge.tx == "tx-1"
+    assert challenge.trans_id == "tx-1"
     request = verify_code_requests(challenge, "123456")[0]
     assert request.url == b2c_url(
         "api/DisplayControl/VerifyCode?tx=tx-1&p=B2C_1A_PRD_signup_signin"
@@ -335,7 +337,7 @@ def test_challenge_from_legacy_display_control_redirect() -> None:
     assert json.loads(request.data)["verificationCode"] == "123456"
 
 
-def test_callback_and_plain_pages_are_not_challenges() -> None:
+def test_callback_and_plain_pages_ignored() -> None:
     """Only an actual code prompt is reported as a verification step."""
     assert MFAChallenge.from_redirect(CALLBACK_CODE) is None
     assert (
@@ -398,7 +400,6 @@ async def test_cookie_state_round_trip() -> None:
 @pytest.mark.asyncio(loop_scope="module")
 async def test_new_login_keeps_the_sso_cookie() -> None:
     """A fresh login drops the stale transaction cookies but not the SSO one."""
-    from hydroqc.hydro_api.mfa import clear_transaction_cookies
 
     jar = aiohttp.CookieJar(quote_cookie=False, unsafe=True)
     url = yarl.URL("https://connexion.solutions.hydroquebec.com/")
@@ -421,8 +422,7 @@ async def test_new_login_keeps_the_sso_cookie() -> None:
 
 @pytest.mark.asyncio(loop_scope="module")
 async def test_session_state_round_trip() -> None:
-    """A session exported by one client restores the refresh token and cookies."""
-    from datetime import datetime, timedelta
+    """A session exported by one client restores the token and cookies."""
 
     source = build_client(build_plain_login())
     assert await source.login() is LoginStatus.SUCCESS

@@ -74,8 +74,7 @@ class MFAKind(StrEnum):
 
 def extract_json_assignment(html: str, name: str) -> dict[str, Any] | None:
     """Extract a ``NAME = {...}`` JavaScript object embedded in a B2C page."""
-    match = re.search(rf"\b{re.escape(name)}\s*=\s*\{{", html)
-    if match is None:
+    if (match := re.search(rf"\b{re.escape(name)}\s*=\s*\{{", html)) is None:
         return None
 
     start = match.end() - 1
@@ -163,8 +162,9 @@ class B2CPage:
             for entry in attribute_fields:
                 if not isinstance(entry, dict):
                     continue
-                control = cls._read_attribute_field(entry, fields, prefill)
-                if control is not None:
+                if (
+                    control := cls._read_attribute_field(entry, fields, prefill)
+                ) is not None:
                     controls.append(control)
 
         return cls(settings=settings, fields=fields, prefill=prefill, controls=controls)
@@ -289,7 +289,7 @@ def is_hydro_host(location: str) -> bool:
     """Tell whether a URL belongs to a Hydro-Québec host."""
     if not location.startswith("https://"):
         return False
-    host = yarl.URL(location).host or ""
+    host = str(yarl.URL(location).host or "")
     return host == "hydroquebec.com" or host.endswith(".hydroquebec.com")
 
 
@@ -304,7 +304,7 @@ class MFAChallenge:
     send_fields: tuple[str, ...] = ()
     verify_fields: tuple[str, ...] = ()
     prefill: dict[str, str] = field(default_factory=dict)
-    tx: str | None = None
+    trans_id: str | None = None
     policy: str | None = None
     api_root: str | None = None
     csrf: str | None = None
@@ -350,7 +350,7 @@ class MFAChallenge:
             kind=kind,
             page_url=location,
             api="SelfAsserted" if kind is MFAKind.SELF_ASSERTED else None,
-            tx=query.get("tx"),
+            trans_id=query.get("tx"),
             policy=query.get("p"),
             api_root=_api_root(location),
         )
@@ -364,8 +364,7 @@ class MFAChallenge:
         Returns ``None`` when the page does not expose a one-time code input,
         which means it is not an MFA step.
         """
-        code_field = page.field_id(CODE_FIELD_HINTS)
-        if code_field is None:
+        if (code_field := page.field_id(CODE_FIELD_HINTS)) is None:
             return None
 
         api = (page.api or "").lower()
@@ -389,7 +388,7 @@ class MFAChallenge:
                 tuple(control.payload_fields("VerifyCode")) if control else ()
             ),
             prefill=dict(page.prefill),
-            tx=page.trans_id or query.get("tx"),
+            trans_id=page.trans_id or query.get("tx"),
             policy=page.policy or query.get("p"),
             api_root=_api_root(page_url),
             csrf=page.csrf,
@@ -402,11 +401,12 @@ class MFAChallenge:
         """Return a copy of the challenge enriched with the page settings."""
         resolved_url = page_url or self.page_url
         api = (page.api or "").lower()
-        kind = self.kind
         if "displaycontrol" in api:
             kind = MFAKind.DISPLAY_CONTROL
         elif "selfasserted" in api:
             kind = MFAKind.SELF_ASSERTED
+        else:
+            kind = self.kind
         api_root = (
             _api_root(resolved_url)
             if resolved_url.startswith("http")
@@ -429,7 +429,7 @@ class MFAChallenge:
                 else self.verify_fields
             ),
             prefill={**self.prefill, **page.prefill},
-            tx=page.trans_id or self.tx,
+            trans_id=page.trans_id or self.trans_id,
             policy=page.policy or self.policy,
             api_root=api_root,
             csrf=page.csrf or self.csrf,
@@ -441,8 +441,8 @@ class MFAChallenge:
     def _query(self, **extra: str | None) -> str:
         """Build the query string of a B2C call."""
         parts = [f"{key}={value}" for key, value in extra.items() if value]
-        if self.tx:
-            parts.append(f"tx={self.tx}")
+        if self.trans_id:
+            parts.append(f"tx={self.trans_id}")
         if self.policy:
             parts.append(f"p={self.policy}")
         return "?" + "&".join(parts) if parts else ""
@@ -528,7 +528,10 @@ def _payload_for(
     challenge: MFAChallenge, action: str, code: str | None = None
 ) -> dict[str, str]:
     """Build the ``INPUT_FIELDS`` payload of a display control action."""
-    fields = challenge.send_fields if action == "SendCode" else challenge.verify_fields
+    if action == "SendCode":
+        fields = challenge.send_fields
+    else:
+        fields = challenge.verify_fields
     if not fields:
         if action == "SendCode":
             fields = (challenge.email_field,)
@@ -561,8 +564,7 @@ def send_code_requests(challenge: MFAChallenge) -> list[MFARequest]:
     ``DisplayControlAction/vbeta/{control}/SendCode``. Policies that do not use
     a display control get the older JSON endpoint instead.
     """
-    payload = _payload_for(challenge, "SendCode")
-    if not payload:
+    if not (payload := _payload_for(challenge, "SendCode")):
         return []
     label = f"display-control send code ({', '.join(payload)})"
     if challenge.control_id is not None:
@@ -586,8 +588,7 @@ def send_code_requests(challenge: MFAChallenge) -> list[MFARequest]:
 
 def verify_code_requests(challenge: MFAChallenge, code: str) -> list[MFARequest]:
     """Return the request that submits ``code`` to B2C."""
-    payload = _payload_for(challenge, "VerifyCode", code)
-    if not payload:
+    if not (payload := _payload_for(challenge, "VerifyCode", code)):
         return []
     label = f"display-control verify code ({', '.join(payload)})"
     if challenge.control_id is not None:
@@ -683,8 +684,7 @@ def clear_transaction_cookies(jar: aiohttp.CookieJar, host: str) -> None:
     """
     target = host.lstrip(".").lower()
     for morsel in list(jar):
-        domain = (morsel["domain"] or "").lstrip(".").lower()
-        if domain != target:
+        if (domain := (morsel["domain"] or "").lstrip(".").lower()) != target:
             continue
         if any(hint in morsel.key.lower() for hint in SSO_COOKIE_HINTS):
             continue
@@ -707,8 +707,7 @@ def serialize_cookies(jar: aiohttp.CookieJar) -> list[dict[str, Any]]:
     """
     cookies: list[dict[str, Any]] = []
     for morsel in jar:
-        domain = morsel["domain"]
-        if not domain:
+        if not (domain := morsel["domain"]):
             continue
         cookies.append(
             {
@@ -752,8 +751,7 @@ def restore_cookies(jar: aiohttp.CookieJar, cookies: Sequence[dict[str, Any]]) -
             except ValueError:
                 moment = None
             if moment is not None:
-                seconds = int((moment - now).total_seconds())
-                if seconds > 0:
+                if (seconds := int((moment - now).total_seconds())) > 0:
                     morsel["max-age"] = str(seconds)
 
         try:

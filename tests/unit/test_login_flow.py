@@ -50,7 +50,7 @@ async def test_login_without_mfa() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_login_reports_mfa_when_the_page_asks_for_a_code() -> None:
+async def test_login_reports_mfa_for_a_code_step() -> None:
     """The verification page answered directly is recognised, not a failure."""
     transport = build_mfa_login()
     client = build_client(transport)
@@ -102,7 +102,7 @@ async def test_login_unexpected_redirect_fails() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_login_unexpected_page_with_a_control_reports_mfa() -> None:
+async def test_login_page_with_control_reports_mfa() -> None:
     """A redirect whose page holds a verification control is an MFA step."""
     transport = build_plain_login()
     transport.routes[2] = (
@@ -154,7 +154,7 @@ async def test_login_unknown_page_fails_cleanly() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_login_missing_transaction_data_fails_cleanly() -> None:
+async def test_login_missing_transaction_fails() -> None:
     """A sign-in page without settings reports a failure."""
     transport = build_plain_login()
     transport.routes[0] = (
@@ -196,7 +196,7 @@ async def test_submit_mfa_code_completes_the_login() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_submit_mfa_code_accepts_a_new_code_after_a_refusal() -> None:
+async def test_submit_mfa_code_after_a_refusal() -> None:
     """A refused code keeps the step alive so another code can be tried."""
     transport = build_mfa_login()
     client = build_client(transport)
@@ -221,7 +221,7 @@ async def test_submit_mfa_code_accepts_a_new_code_after_a_refusal() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_submit_mfa_code_reports_an_expired_step() -> None:
+async def test_submit_mfa_code_reports_expiry() -> None:
     """An expired transaction asks for a fresh login."""
     transport = build_mfa_login()
     client = build_client(transport)
@@ -245,7 +245,7 @@ async def test_submit_mfa_code_reports_an_expired_step() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_submit_mfa_code_without_a_challenge_raises() -> None:
+async def test_submit_mfa_code_without_challenge() -> None:
     """Submitting a code without a pending step is an error, not a login."""
     client = build_client(build_plain_login())
 
@@ -283,7 +283,7 @@ async def test_expired_session_reports_mfa_required() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_expired_session_replays_the_sso_before_asking_a_code() -> None:
+async def test_expired_session_replays_the_sso() -> None:
     """An expired refresh token still reuses the single sign-on cookie."""
     transport = build_plain_login()
     transport.routes.insert(
@@ -304,7 +304,7 @@ async def test_expired_session_replays_the_sso_before_asking_a_code() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_silent_login_replays_the_stored_session() -> None:
+async def test_silent_login_replays_the_session() -> None:
     """The stored cookies get an authorization code without interaction."""
     transport = build_plain_login()
     transport.routes.insert(
@@ -349,7 +349,7 @@ async def test_silent_login_falls_back_cleanly() -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_silent_login_never_raises_on_http_error() -> None:
+async def test_silent_login_ignores_http_errors() -> None:
     """An HTTP failure during a silent attempt reports FAILED instead of raising."""
 
     def fail(_kwargs: dict[str, Any]) -> FakeResponse:
@@ -364,7 +364,7 @@ async def test_silent_login_never_raises_on_http_error() -> None:
     await client.close_session()
 
 
-def test_token_payload_without_refresh_lifetime() -> None:
+def test_token_payload_without_lifetime() -> None:
     """A token answer without a refresh lifetime does not break the client."""
     client = build_client(build_plain_login())
     payload: dict[str, Any] = {

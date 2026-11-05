@@ -31,7 +31,7 @@ class WebUser:
         http_log_level: str | None = None,
         log_file: str | None = None,
         diag_folder: str | None = None,
-        family: socket.AddressFamily = socket.AF_UNSPEC,
+        family: socket.AddressFamily = socket.AF_UNSPEC,  # pylint: disable=no-member
         cookie_jar: aiohttp.CookieJar | None = None,
         refresh_token: str = "",
         refresh_token_expiry: datetime | None = None,

@@ -124,7 +124,7 @@ class HydroClient:
         log_level: str | None = "INFO",
         diag_folder: str | None = None,
         enable_cache: bool = True,
-        family: socket.AddressFamily = socket.AF_UNSPEC,
+        family: socket.AddressFamily = socket.AF_UNSPEC,  # pylint: disable=no-member
         cookie_jar: aiohttp.CookieJar | None = None,
         refresh_token: str = "",
         refresh_token_expiry: datetime | None = None,
@@ -161,7 +161,7 @@ class HydroClient:
         self._session: aiohttp.ClientSession | None = session
         self._verify_ssl: bool = verify_ssl
         self.enable_cache: bool = enable_cache
-        self._family: socket.AddressFamily = family
+        self._family: socket.AddressFamily = family  # pylint: disable=no-member
         self._cookie_jar = cookie_jar
 
         # Azure AD B2C login state
@@ -446,8 +446,7 @@ class HydroClient:
             return LoginStatus.FAILED
 
         # Extract the CSRF token
-        csrf_token = page.csrf
-        if csrf_token is None:
+        if (csrf_token := page.csrf) is None:
             self._logger.error(
                 "Login error finding csrf token in the sign-in page "
                 "(the page layout may have changed)"
@@ -455,8 +454,7 @@ class HydroClient:
             return LoginStatus.FAILED
 
         # Extract the transId
-        transid = page.trans_id
-        if transid is None:
+        if (transid := page.trans_id) is None:
             self._logger.error(
                 "Login error finding trans Id in the sign-in page "
                 "(the page layout may have changed)"
@@ -575,7 +573,7 @@ class HydroClient:
         # verification page, or the verification page itself.
         res = await self.http_request(url, "get", headers=headers, status=None)
 
-        if res.status in (301, 302, 303, 307, 308):
+        if res.status in {301, 302, 303, 307, 308}:
             location = res.headers.get("Location", "")
             if code := extract_auth_code(location):
                 # Extract the code attribute from the location header, which
@@ -584,8 +582,7 @@ class HydroClient:
                 # auth/?state=%257B...&code=(code value)
                 return await self._exchange_code_for_token(code)
 
-            challenge = MFAChallenge.from_redirect(location)
-            if challenge is None:
+            if (challenge := MFAChallenge.from_redirect(location)) is None:
                 self._logger.error(
                     "Login error: unexpected redirect after the password step "
                     "(%s). The login flow of Hydro-Quebec may have changed.",
@@ -595,8 +592,9 @@ class HydroClient:
             return await self._open_mfa_challenge(challenge)
 
         page = page or B2CPage.from_html(await res.text())
-        challenge = MFAChallenge.from_page(str(res.url), page, email=self.username)
-        if challenge is None:
+        if (
+            challenge := MFAChallenge.from_page(str(res.url), page, email=self.username)
+        ) is None:
             self._logger.error(
                 "Login error: unexpected answer after the password step (HTTP "
                 "%s), neither an authorization code nor a verification form was "
@@ -670,8 +668,7 @@ class HydroClient:
         ``False`` when no request was accepted, which does not mean no code was
         sent: some policies send it on their own.
         """
-        challenge = self._mfa_challenge
-        if challenge is None:
+        if (challenge := self._mfa_challenge) is None:
             self._logger.error(
                 "No verification step in progress, cannot request a code"
             )
@@ -720,14 +717,12 @@ class HydroClient:
                 verification step is still valid, another code can be tried.
 
         """
-        challenge = self._mfa_challenge
-        if challenge is None:
+        if (challenge := self._mfa_challenge) is None:
             raise HydroQcMFAExpiredError(
                 "No e-mail verification step in progress, the login has to be restarted"
             )
 
-        code = code.strip()
-        if not code:
+        if not (code := code.strip()):
             raise HydroQcMFAInvalidCodeError("Empty verification code")
 
         last_message = ""
@@ -743,7 +738,7 @@ class HydroClient:
                 )
             except HydroQcHTTPError as err:
                 last_message = str(err)
-                expired = expired or err.status_code in (400, 404, 410)
+                expired = expired or err.status_code in {400, 404, 410}
                 continue
 
             payload = await self._json_or_empty(res)
@@ -777,12 +772,11 @@ class HydroClient:
         Doing the same gives B2C the chance to hand out the authorization code
         that the token endpoint expects.
         """
-        challenge = self._mfa_challenge
-        if challenge is None:
+        if (challenge := self._mfa_challenge) is None:
             raise HydroQcMFAExpiredError(
                 "No e-mail verification step in progress, the login has to be restarted"
             )
-        if challenge.csrf is None or challenge.tx is None:
+        if challenge.csrf is None or challenge.trans_id is None:
             self._logger.error(
                 "Login error: the verification page did not expose a csrf token "
                 "or a transaction id, cannot complete the login"
@@ -817,7 +811,7 @@ class HydroClient:
                 )
 
         status = await self._advance_login(
-            challenge.csrf, challenge.tx, api=challenge.api or "SelfAsserted"
+            challenge.csrf, challenge.trans_id, api=challenge.api or "SelfAsserted"
         )
         if status is LoginStatus.SUCCESS:
             self._mfa_challenge = None
@@ -904,7 +898,7 @@ class HydroClient:
         """Decode a B2C JSON answer, tolerating HTML or empty bodies."""
         try:
             payload = await res.json(content_type=None)
-        except (json.JSONDecodeError, aiohttp.ContentTypeError, ValueError):
+        except (aiohttp.ContentTypeError, ValueError):
             return {}
         return payload if isinstance(payload, dict) else {}
 
@@ -917,8 +911,7 @@ class HydroClient:
             seconds=max(expires_in - AZB2C_TIMEOUT_SKEW_SECS, 0)
         )
         self.refresh_token = str(payload.get("refresh_token") or self.refresh_token)
-        refresh_expires_in = int(str(payload.get("refresh_token_expires_in") or 0))
-        if refresh_expires_in:
+        if refresh_expires_in := int(str(payload.get("refresh_token_expires_in") or 0)):
             self.refresh_token_expiry = datetime.now() + timedelta(
                 seconds=max(refresh_expires_in - AZB2C_TIMEOUT_SKEW_SECS, 0)
             )
