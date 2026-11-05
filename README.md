@@ -1,8 +1,8 @@
 # HydroQC - Hydro Quebec API wrapper
 
 
-[![coverage report](https://gitlab.com/hydroqc/hydroqc/badges/main/coverage.svg)](https://gitlab.com/hydroqc/hydroqc/-/commits/main)
-[![pipeline status](https://gitlab.com/hydroqc/hydroqc/badges/main/pipeline.svg)](https://gitlab.com/hydroqc/hydroqc/-/commits/main)
+[![CI](https://github.com/hydroqc/hydroqc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hydroqc/hydroqc/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/Hydro-Quebec-API-Wrapper.svg)](https://pypi.org/project/Hydro-Quebec-API-Wrapper/)
 
 
 
@@ -132,7 +132,7 @@ This uses python 3.10
 1. Clone the repo
 
    ```bash
-   git clone https://gitlab.com/hydroqc/hydroqc.git
+   git clone https://github.com/hydroqc/hydroqc.git
    ```
 
 2. Create a virtual-env

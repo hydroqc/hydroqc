@@ -24,8 +24,8 @@ keywords = ["hydroquebec", "lib"]
 requires-python = ">=3.12.0"
 
 [project.urls]
-"Source Code" = "https://gitlab.com/hydroqc/hydroqc"
-"Bug Reports" = "https://gitlab.com/hydroqc/hydroqc/-/issues"
+"Source Code" = "https://github.com/hydroqc/hydroqc"
+"Bug Reports" = "https://github.com/hydroqc/hydroqc/issues"
 "Home-page"   = "https://hydroqc.ca"
 
 [tool.setuptools]

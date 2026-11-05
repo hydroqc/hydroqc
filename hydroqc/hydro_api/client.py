@@ -223,7 +223,7 @@ class HydroClient:
         os_name = platform.system()
         return (
             f"Hydroqc/{self._cached_version} "
-            f"(dev@hydroqc.ca; https://gitlab.com/hydroqc) {os_name}"
+            f"(dev@hydroqc.ca; https://github.com/hydroqc) {os_name}"
         )
 
     async def http_request(
