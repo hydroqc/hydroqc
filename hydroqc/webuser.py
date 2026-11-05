@@ -1,7 +1,14 @@
 """Hydroquebec webuser module."""
 
 import logging
+import socket
+from collections.abc import Mapping
+from datetime import datetime
+from typing import Any
 
+import aiohttp
+
+from hydroqc.consts import LoginStatus
 from hydroqc.customer import Customer
 from hydroqc.error import HydroQcError
 from hydroqc.hydro_api.client import HydroClient
@@ -24,6 +31,10 @@ class WebUser:
         http_log_level: str | None = None,
         log_file: str | None = None,
         diag_folder: str | None = None,
+        family: socket.AddressFamily = socket.AF_UNSPEC,
+        cookie_jar: aiohttp.CookieJar | None = None,
+        refresh_token: str = "",
+        refresh_token_expiry: datetime | None = None,
     ):
         """Create a new Hydroquebec webuser."""
         self._hydro_client = HydroClient(
@@ -32,6 +43,10 @@ class WebUser:
             verify_ssl=verify_ssl,
             log_level=http_log_level,
             diag_folder=diag_folder,
+            family=family,
+            cookie_jar=cookie_jar,
+            refresh_token=refresh_token,
+            refresh_token_expiry=refresh_token_expiry,
         )
         self._username: str = username
         self._log_level: str | None = log_level
@@ -43,9 +58,57 @@ class WebUser:
         """Check if the Hydro Quebec website/portal is available."""
         return await self._hydro_client.check_portal_status()
 
-    async def login(self) -> bool:
-        """Login to Hydroquebec website."""
+    async def login(self) -> LoginStatus:
+        """Login to Hydroquebec website.
+
+        Returns :attr:`LoginStatus.MFA_REQUIRED` when Hydro-Quebec asks for an
+        e-mail verification code. The login is then incomplete until
+        :meth:`submit_mfa_code` is called with the received code.
+        """
         return await self._hydro_client.login()
+
+    async def try_silent_login(self) -> LoginStatus:
+        """Try to log in with the stored session, without any user interaction.
+
+        Useful when a previous session was persisted: the B2C single sign-on
+        cookie may still be valid and skip both the password and the e-mail
+        verification code.
+        """
+        return await self._hydro_client.try_silent_login()
+
+    async def submit_mfa_code(self, code: str) -> LoginStatus:
+        """Submit the e-mail verification code and finish the login.
+
+        Raises:
+            hydroqc.error.HydroQcMFAInvalidCodeError: the code was refused, the
+                verification step is still valid.
+            hydroqc.error.HydroQcMFAExpiredError: the verification step expired
+                and the login has to be restarted.
+
+        """
+        return await self._hydro_client.submit_mfa_code(code)
+
+    async def request_mfa_code(self) -> bool:
+        """Ask Hydro-Quebec to send (or resend) an e-mail verification code."""
+        return await self._hydro_client.request_mfa_code()
+
+    @property
+    def mfa_required(self) -> bool:
+        """Return True while a verification code has to be submitted."""
+        return self._hydro_client.mfa_required
+
+    def export_session_state(self) -> dict[str, Any]:
+        """Return the session state worth persisting between runs.
+
+        Holds the OAuth tokens and the Azure AD B2C cookies. Persisting it lets
+        the next run skip the login, and therefore skip a new e-mail
+        verification code, while the refresh token or the SSO cookie is valid.
+        """
+        return self._hydro_client.export_session_state()
+
+    def import_session_state(self, state: Mapping[str, Any]) -> None:
+        """Restore a session state produced by :meth:`export_session_state`."""
+        self._hydro_client.import_session_state(state)
 
     @property
     def session_expired(self) -> bool:

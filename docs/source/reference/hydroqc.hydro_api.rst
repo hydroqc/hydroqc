@@ -28,6 +28,14 @@ hydroqc.hydro\_api.consts module
    :undoc-members:
    :show-inheritance:
 
+hydroqc.hydro\_api.mfa module
+----------------------------
+
+.. automodule:: hydroqc.hydro_api.mfa
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

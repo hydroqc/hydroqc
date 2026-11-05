@@ -3,6 +3,8 @@ import asyncio
 import os
 from datetime import date
 
+from hydroqc.consts import LoginStatus
+from hydroqc.error import HydroQcMFAInvalidCodeError
 from hydroqc.webuser import WebUser
 
 
@@ -14,8 +16,26 @@ webuser = WebUser(
 )
 
 
+async def login() -> None:
+    """Log in, asking for the e-mail verification code when the portal wants one."""
+    status = await webuser.login()
+    while status is LoginStatus.MFA_REQUIRED:
+        code = input(
+            f"Enter the verification code sent to {USERNAME} (empty = new code): "
+        )
+        if not code.strip():
+            await webuser.request_mfa_code()
+            continue
+        try:
+            status = await webuser.submit_mfa_code(code)
+        except HydroQcMFAInvalidCodeError as err:
+            print(f"The code was refused ({err}), try again.")
+    if status is not LoginStatus.SUCCESS:
+        raise SystemExit("Login failed")
+
+
 async def async_func():
-    await webuser.login()
+    await login()
     await webuser.get_info()
 
     customer = webuser.customers[0]

@@ -65,6 +65,58 @@ We don't have anyone to test with. Please reach out to us if you have this plan 
 
 If you need more information about the usage and current integrations of the library please see our website [https://hydroqc.ca](https://hydroqc.ca)
 
+## E-mail verification (MFA)
+
+Hydro-Québec can ask for a one-time code sent by e-mail after the password round
+trip. `login()` returns a `LoginStatus` instead of a plain boolean:
+
+```python
+from hydroqc.consts import LoginStatus
+from hydroqc.error import HydroQcMFAInvalidCodeError
+
+status = await webuser.login()
+while status is LoginStatus.MFA_REQUIRED:
+    code = input("Verification code (empty = send a new one): ")
+    if not code.strip():
+        await webuser.request_mfa_code()
+        continue
+    try:
+        status = await webuser.submit_mfa_code(code)
+    except HydroQcMFAInvalidCodeError:
+        print("Code refused, try again.")
+
+if status is not LoginStatus.SUCCESS:
+    raise RuntimeError("Login failed")
+```
+
+`bool(status)` is only true for `LoginStatus.SUCCESS`, so existing code using
+`if await webuser.login():` keeps working. The code is requested automatically
+when the step is detected; `request_mfa_code()` sends a new one. The
+verification step expires after a few minutes (3 minutes on the current
+portal): `HydroQcMFAExpiredError` means the login has to be restarted.
+
+A silent background login cannot ask for a code and raises
+`HydroQcMFARequiredError` instead of failing quietly.
+
+### Reusing a session
+
+`export_session_state()` returns the OAuth tokens plus the Azure AD B2C cookies;
+`import_session_state()` restores them. Persisting that state lets a later run
+skip the password (and a new verification code) while the refresh token or the
+single sign-on cookie is still valid. The current portal issues 15-minute access
+tokens and a 24-hour refresh token, so the stored session is normally reusable
+for about a day; once the refresh token and the single sign-on cookie are both
+refused, a new interactive login (and a new code) is required:
+
+```python
+state = webuser.export_session_state()   # store it somewhere safe
+# ... next run ...
+webuser = WebUser(username, password, verify_ssl=True)
+webuser.import_session_state(state)
+if await webuser.try_silent_login() is not LoginStatus.SUCCESS:
+    await webuser.login()
+```
+
 ## Goal
 
 Make it easy to fetch and manipulate data from Hydro-Quebec, especially the winter credit periods

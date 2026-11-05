@@ -7,9 +7,9 @@ import json
 import logging
 import os
 import platform
-import re
+import socket
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import date, datetime, timedelta
 from importlib.metadata import PackageNotFoundError, version
 from io import StringIO
@@ -20,7 +20,14 @@ import aiohttp
 import yarl
 from pkce import generate_pkce_pair
 
-from hydroqc.error import HydroQcError, HydroQcHTTPError
+from hydroqc.consts import LoginStatus
+from hydroqc.error import (
+    HydroQcError,
+    HydroQcHTTPError,
+    HydroQcMFAExpiredError,
+    HydroQcMFAInvalidCodeError,
+    HydroQcMFARequiredError,
+)
 from hydroqc.hydro_api.cache import CCached
 from hydroqc.hydro_api.consts import (
     ANNUAL_DATA_URL,
@@ -40,6 +47,9 @@ from hydroqc.hydro_api.consts import (
     FLEXD_DATA_URL,
     FLEXD_PEAK_URL,
     GET_CPC_API_URL,
+    HOST_LOGIN,
+    HOST_SERVICES,
+    HOST_SESSION,
     HOURLY_CONSUMPTION_API_URL,
     IS_HYDRO_PORTAL_UP_URL,
     MONTHLY_DATA_URL,
@@ -51,6 +61,23 @@ from hydroqc.hydro_api.consts import (
     REQUESTS_TIMEOUT,
     SESSION_URL,
     TOKEN_URL,
+)
+from hydroqc.hydro_api.mfa import (
+    B2CPage,
+    MFAChallenge,
+    MFAKind,
+    call_succeeded,
+    clear_cookies_for_host,
+    clear_transaction_cookies,
+    completion_request,
+    extract_auth_code,
+    extract_redirect_error,
+    looks_expired,
+    payload_message,
+    restore_cookies,
+    send_code_requests,
+    serialize_cookies,
+    verify_code_requests,
 )
 from hydroqc.logger import get_logger
 from hydroqc.types import (
@@ -75,11 +102,16 @@ from hydroqc.types import (
 )
 from hydroqc.utils import EST_TIMEZONE
 
+# Host serving the Azure AD B2C pages. Its cookies hold the login transaction
+# and the single sign-on state: they are the ones worth persisting to skip a
+# later e-mail verification code.
+B2C_HOST: str = yarl.URL(HOST_LOGIN).host or ""
+
 
 class HydroClient:
     """HydroQc HTTP Client."""
 
-    _cookie_jar: aiohttp.CookieJar
+    _cookie_jar: aiohttp.CookieJar | None
 
     def __init__(
         self,
@@ -92,6 +124,10 @@ class HydroClient:
         log_level: str | None = "INFO",
         diag_folder: str | None = None,
         enable_cache: bool = True,
+        family: socket.AddressFamily = socket.AF_UNSPEC,
+        cookie_jar: aiohttp.CookieJar | None = None,
+        refresh_token: str = "",
+        refresh_token_expiry: datetime | None = None,
     ):
         """Initialize the client object.
 
@@ -104,6 +140,19 @@ class HydroClient:
             log_level: Logging level. Defaults to "INFO".
             diag_folder: Optional folder path for diagnostic output. Defaults to None.
             enable_cache: Whether to enable response caching. Defaults to True.
+            family: Socket address family for outbound connections. Defaults to
+                socket.AF_UNSPEC, which keeps the default dual-stack (IPv6/IPv4)
+                behaviour. Use socket.AF_INET to force IPv4 on networks where the
+                IPv6 path is broken.
+            cookie_jar: Cookie jar to reuse. Passing a jar restored with
+                ``import_session_state`` lets the portal skip a new login (and a
+                new e-mail verification code) when its single sign-on cookie is
+                still valid. Defaults to None.
+            refresh_token: Refresh token from a previous session. When it is
+                still valid no login (hence no e-mail verification code) is
+                needed. Defaults to "".
+            refresh_token_expiry: Expiry of ``refresh_token``. Defaults to None,
+                which marks the session as already expired.
 
         """
         self.username: str = username
@@ -112,13 +161,20 @@ class HydroClient:
         self._session: aiohttp.ClientSession | None = session
         self._verify_ssl: bool = verify_ssl
         self.enable_cache: bool = enable_cache
+        self._family: socket.AddressFamily = family
+        self._cookie_jar = cookie_jar
+
+        # Azure AD B2C login state
+        self._code_verifier: str = ""
+        self._mfa_challenge: MFAChallenge | None = None
+        self._pending_cookies: list[dict[str, Any]] = []
 
         # OAuth handling variables
         self._id_token: str = ""
         self.access_token: str = ""
         self.access_token_expiry: datetime = datetime.now()
-        self.refresh_token: str = ""
-        self.refresh_token_expiry: datetime = datetime.now()
+        self.refresh_token: str = refresh_token
+        self.refresh_token_expiry: datetime = refresh_token_expiry or datetime.now()
         self.web_session_expiry: datetime = datetime.now()
 
         self._selected_customer: str
@@ -143,6 +199,7 @@ class HydroClient:
         self.refresh_token = ""
         self.refresh_token_expiry = datetime.now()
         self.web_session_expiry = datetime.now()
+        self._mfa_challenge = None
         # self._cookie_jar = aiohttp.CookieJar()
         self._selected_customer = ""
         self._selected_contract = ""
@@ -182,7 +239,12 @@ class HydroClient:
         url_encoded: bool = False,
         allow_redirects: bool | None = None,
     ) -> aiohttp.ClientResponse:
-        """Make an HTTP request."""
+        """Make an HTTP request.
+
+        ``status`` is the HTTP status expected for the call. ``None`` disables
+        the check, which the login flow needs: Azure AD B2C answers the same
+        endpoint with a redirect, a page or an error depending on the step.
+        """
         if params is None:
             params = {}
         if data is None:
@@ -249,7 +311,7 @@ class HydroClient:
             # Increment diag_id
             self._diag_id += 1
 
-        if raw_res.status != status:
+        if status is not None and raw_res.status != status:
             self._logger.exception("Exception in http_request")
             data = await raw_res.text()
             self._logger.debug(data)
@@ -297,16 +359,21 @@ class HydroClient:
 
     async def _get_httpsession(self) -> None:
         """Set http session."""
-        if not hasattr(self, "_cookie_jar"):
+        if self._cookie_jar is None:
             # aiohttp 3.12+ changed cookie quoting behavior for shared/default-scope cookies.
             # Azure B2C endpoints used in the login flow can be sensitive to quoted cookies.
             # Disable quoting to preserve legacy behavior and improve compatibility.
             # Also allow 'unsafe' cookies as some endpoints may not strictly adhere to RFCs.
             self._cookie_jar = aiohttp.CookieJar(quote_cookie=False, unsafe=True)
+        if self._pending_cookies:
+            restore_cookies(self._cookie_jar, self._pending_cookies)
+            self._pending_cookies = []
         if self._session is None:
             self._logger.debug("Creating new http session")
             self._session = aiohttp.ClientSession(
-                requote_redirect_url=False, cookie_jar=self._cookie_jar
+                requote_redirect_url=False,
+                cookie_jar=self._cookie_jar,
+                connector=aiohttp.TCPConnector(family=self._family),
             )
 
     async def _get_customer_http_headers(
@@ -346,10 +413,13 @@ class HydroClient:
             return False
         return True
 
-    async def login(self) -> bool:
+    async def login(self) -> LoginStatus:
         """Log in HydroQuebec website.
 
-        Hydroquebec is using B2C solution for authentication.
+        Hydroquebec is using B2C solution for authentication. The policy may now
+        stop after the password round trip and ask for a one-time code sent by
+        e-mail: :attr:`LoginStatus.MFA_REQUIRED` is then returned and the code
+        has to be submitted with :meth:`submit_mfa_code`.
         """
         self._logger.info("Login using %s", self.username)
 
@@ -357,18 +427,55 @@ class HydroClient:
         self.reset()
 
         # Get code verifier and challenge
-        code_verifier, code_challenge = generate_pkce_pair()
+        self._code_verifier, code_challenge = generate_pkce_pair()
 
         # Get http session
         await self._get_httpsession()
-        # Ensure a clean slate for authentication cookies (csrf, TransId, etc.)
-        # Some Azure B2C flows reject reused cookies leading to 400 on SelfAsserted.
-        try:
-            self._cookie_jar.clear()
-        except AttributeError:  # pragma: no cover - defensive
-            self._logger.debug("Failed to clear cookie jar before login", exc_info=True)
+        # Ensure a clean slate for the B2C transaction cookies (csrf, TransId,
+        # ...). Some Azure B2C flows reject reused cookies leading to 400 on
+        # SelfAsserted. The single sign-on cookie is kept: it lets this login
+        # skip the e-mail verification code, and the cookies of the other
+        # Hydro-Quebec hosts belong to the portal session.
+        if self._cookie_jar is not None:
+            clear_transaction_cookies(self._cookie_jar, B2C_HOST)
 
-        url = f"{AUTHORIZE_URL}"
+        page = await self._fetch_authorize_page(
+            prompt="login", code_challenge=code_challenge
+        )
+        if page is None:
+            return LoginStatus.FAILED
+
+        # Extract the CSRF token
+        csrf_token = page.csrf
+        if csrf_token is None:
+            self._logger.error(
+                "Login error finding csrf token in the sign-in page "
+                "(the page layout may have changed)"
+            )
+            return LoginStatus.FAILED
+
+        # Extract the transId
+        transid = page.trans_id
+        if transid is None:
+            self._logger.error(
+                "Login error finding trans Id in the sign-in page "
+                "(the page layout may have changed)"
+            )
+            return LoginStatus.FAILED
+
+        return await self._post_credentials(csrf_token, transid)
+
+    async def _fetch_authorize_page(
+        self, *, prompt: str, code_challenge: str
+    ) -> B2CPage | None:
+        """Fetch the B2C authorize page and parse its embedded configuration.
+
+        Azure AD B2C pages embed their own settings: ``SETTINGS`` holds the csrf
+        token, the transaction id and the API segment, ``SA_FIELDS`` holds the
+        input field names. Reading them instead of scraping ad-hoc strings keeps
+        the client working when the portal reshuffles its pages, and exposes the
+        real field names of the verification step.
+        """
         headers = {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         }
@@ -377,52 +484,34 @@ class HydroClient:
             "client_id": AZB2C_CLIENT_ID_WEB,
             "response_type": "code",
             "scope": AZB2C_SCOPE_WEB,
-            "prompt": "login",
+            "prompt": prompt,
             "ui_locales": "fr",
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
             "mobile": "false",
         }
 
-        # Allow redirects for initial authorize call
-        # (Azure B2C sometimes issues a 302 before final HTML)
+        # Allow redirects for the initial authorize call
+        # (Azure B2C sometimes issues a 302 before the final HTML)
         res = await self.http_request(
-            url, "get", headers=headers, params=params, allow_redirects=True
+            AUTHORIZE_URL, "get", headers=headers, params=params, allow_redirects=True
         )
+        if res.status != 200:
+            self._logger.error(
+                "Login error: the sign-in page answered HTTP %s", res.status
+            )
+            return None
+        return B2CPage.from_html(await res.text())
 
-        html_data = await res.text()
+    async def _post_credentials(self, csrf_token: str, transid: str) -> LoginStatus:
+        """Submit the e-mail/password pair to Azure AD B2C.
 
-        # Extract the CSRF token
-
-        if csrf_match := re.search(r'csrf":"(.+?)"', html_data):
-            csrf_token = csrf_match.group(1)
-        else:
-            self._logger.error("Login error finding csrf token")
-            return False
-
-        # Extract the transId
-        if transid_match := re.search(r'transId":"(.+?)"', html_data):
-            transid = transid_match.group(1)
-        else:
-            self._logger.error("Login error finding trans Id")
-            return False
-
-        # POST https://connexion.solutions.hydroquebec.com/32bf9b91-0a36-4385-b231-d9a8fa3b05ab/
-        # B2C_1A_PRD_signup_signin/SelfAsserted?tx=(transId value previously extracted)
-        # &p=B2C_1A_PRD_signup_signin
-        # with the following URLEncoded Form data
-
-        # request_type: RESPONSE
-        # signInName:   loginemail
-        # password:     password
-        #
-        # The following http headers
-        # content-type:      application/x-www-form-urlencoded; charset=UTF-8
-        # accept:            application/json, text/javascript, */*; q=0.01
-        #
-        # Set the x-csrf-token header with the value previously extracted
-        #
-        # and the cookies captured in the last request
+        POST https://connexion.solutions.hydroquebec.com/<tenant>/
+        B2C_1A_PRD_signup_signin/SelfAsserted?tx=<transId>&p=<policy>
+        with the URL encoded form data ``request_type=RESPONSE``,
+        ``signInName`` and ``password``, the ``x-csrf-token`` header set to the
+        value extracted from the sign-in page and the session cookies.
+        """
         url = AUTH_URL + "?tx=" + transid + "&p=" + AZB2C_POLICY
         headers = {
             "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -436,97 +525,467 @@ class HydroClient:
             "password": self.password,
         }
         res = await self.http_request(url, "post", headers=headers, data=data)
-        res_text = await res.text()
-        res_json = json.loads(res_text)
+        res_json = await self._json_or_empty(res)
 
-        if res_json.get("status") != "200":
+        if str(res_json.get("status")) != "200":
             self._logger.error("Login error - %s", res_json.get("message", "unknown"))
-            return False
+            return LoginStatus.FAILED
 
-        # Call GET https://connexion.solutions.hydroquebec.com/32bf9b91-0a36-4385-b231-d9a8fa3b05ab/
-        # B2C_1A_PRD_signup_signin/api/CombinedSigninAndSignup/confirmed?rememberMe=false
-        # &csrf_token=(previously extracted csrf token)&tx=(previously extracted transId value)
-        # &p=B2C_1A_PRD_signup_signin
-        # with the session cookies
-        # and the following http headers
-        # accept:           text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-        #
-        # and extract the code attribute from the location header of the response which
-        #  has the following format:
-        # location: msauth.com.hydroquebec.infos-pannes://
-        # auth/?state=%257B%2522redirectUrl%2522%3a%2522CONSO%2522%257D&code=(code value)
+        return await self._advance_login(csrf_token, transid)
 
-        # Set the HTTP request parameters
+    async def _advance_login(
+        self,
+        csrf_token: str,
+        transid: str,
+        *,
+        api: str = "CombinedSigninAndSignup",
+        page: B2CPage | None = None,
+    ) -> LoginStatus:
+        """Ask Azure AD B2C for the next step of the login flow.
+
+        GET https://connexion.solutions.hydroquebec.com/<tenant>/
+        B2C_1A_PRD_signup_signin/api/<api>/confirmed
+        ?rememberMe=false&csrf_token=<csrf>&tx=<transId>&p=<policy>
+
+        A single factor login answers ``302`` with the ``code`` attribute of the
+        callback in the ``Location`` header. A policy asking for a second factor
+        answers ``302`` to its verification page (or ``200`` with that page),
+        which is reported as :attr:`LoginStatus.MFA_REQUIRED`. ``api`` is
+        ``SelfAsserted`` when the call follows the verification page.
+        """
         url = (
-            "https://connexion.solutions.hydroquebec.com/32bf9b91-0a36-4385-b231-d9a8fa3b05ab"
-            + "/B2C_1A_PRD_signup_signin/api/CombinedSigninAndSignup/"
-            + "confirmed?rememberMe=false&csrf_token="
+            AUTH_URL.rsplit("/", 1)[0]
+            + "/api/"
+            + api
+            + "/confirmed?csrf_token="
             + csrf_token
             + "&tx="
             + transid
             + "&p="
             + AZB2C_POLICY
         )
+        if api == "CombinedSigninAndSignup":
+            url += "&rememberMe=false"
         headers = {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         }
 
-        # Execute the http request
-        res = await self.http_request(url, "get", headers=headers, status=302)
+        # The status is not enforced here: depending on its configuration the
+        # policy answers a redirect to the callback, a redirect to a
+        # verification page, or the verification page itself.
+        res = await self.http_request(url, "get", headers=headers, status=None)
 
-        # Extract the code attribute from the location header
-        if code_match := re.search(r"code=(.+?)$", res.headers["Location"]):
-            code = code_match.group(1)
-        else:
-            self._logger.error("Login error finding code attribute in location header")
+        if res.status in (301, 302, 303, 307, 308):
+            location = res.headers.get("Location", "")
+            if code := extract_auth_code(location):
+                # Extract the code attribute from the location header, which
+                # has the following format:
+                # msauth.com.hydroquebec.infos-pannes://
+                # auth/?state=%257B...&code=(code value)
+                return await self._exchange_code_for_token(code)
+
+            challenge = MFAChallenge.from_redirect(location)
+            if challenge is None:
+                self._logger.error(
+                    "Login error: unexpected redirect after the password step "
+                    "(%s). The login flow of Hydro-Quebec may have changed.",
+                    location,
+                )
+                return LoginStatus.FAILED
+            return await self._open_mfa_challenge(challenge)
+
+        page = page or B2CPage.from_html(await res.text())
+        challenge = MFAChallenge.from_page(str(res.url), page, email=self.username)
+        if challenge is None:
+            self._logger.error(
+                "Login error: unexpected answer after the password step (HTTP "
+                "%s), neither an authorization code nor a verification form was "
+                "found. The login flow of Hydro-Quebec may have changed.",
+                res.status,
+            )
+            return LoginStatus.FAILED
+        return await self._open_mfa_challenge(challenge, page)
+
+    async def _open_mfa_challenge(
+        self, challenge: MFAChallenge, page: B2CPage | None = None
+    ) -> LoginStatus:
+        """Record the verification step and ask for a one-time code."""
+        challenge.email = challenge.email or self.username
+
+        # A redirect only carries the URL of the verification page: load it to
+        # get its csrf token, transaction id, display control and exact input
+        # names. When the caller already holds the page (the policy answered it
+        # directly), there is nothing to fetch.
+        if page is not None:
+            if page.settings or page.fields:
+                challenge = challenge.with_page(page)
+        elif challenge.page_url.startswith("http"):
+            try:
+                res = await self.http_request(
+                    challenge.page_url,
+                    "get",
+                    headers={
+                        "accept": (
+                            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                        )
+                    },
+                    status=None,
+                    allow_redirects=True,
+                )
+            except HydroQcHTTPError:
+                self._logger.debug(
+                    "Could not load the verification page %s",
+                    challenge.page_url,
+                    exc_info=True,
+                )
+            else:
+                page = B2CPage.from_html(await res.text())
+                if page.settings or page.fields:
+                    challenge = challenge.with_page(page, str(res.url))
+
+        if challenge.kind is MFAKind.UNKNOWN and (page is None or not page.fields):
+            # An unexpected step that does not even look like a form: report a
+            # failure instead of asking the user for a code that was never sent.
+            self._logger.error(
+                "Login error: unexpected step after the password step (%s). "
+                "The login flow of Hydro-Quebec may have changed.",
+                challenge.page_url,
+            )
+            return LoginStatus.FAILED
+
+        self._mfa_challenge = challenge
+        self._logger.warning(
+            "Login requires an e-mail verification code for %s (%s). The login "
+            "is not complete until the code is submitted.",
+            self.username,
+            challenge.description,
+        )
+        await self.request_mfa_code()
+        return LoginStatus.MFA_REQUIRED
+
+    async def request_mfa_code(self) -> bool:
+        """Ask Hydro-Quebec to e-mail a one-time code.
+
+        Also used to resend a code that expired or never arrived. Returns
+        ``False`` when no request was accepted, which does not mean no code was
+        sent: some policies send it on their own.
+        """
+        challenge = self._mfa_challenge
+        if challenge is None:
+            self._logger.error(
+                "No verification step in progress, cannot request a code"
+            )
             return False
 
-        # POST https://connexion.solutions.hydroquebec.com/32bf9b91-0a36-4385-b231-d9a8fa3b05ab/
-        # b2c_1a_prd_signup_signin/oauth2/v2.0/token HTTP/2.0
-        # with the following URLEncoded Form data
-        # grant_type:    authorization_code
-        # client_id:     09b0ae72-6db8-4ecc-a1be-041b67afc1cd
-        # redirect_uri:  msauth.com.hydroquebec.infos-pannes://auth
-        # code:        (previously extracted code)
-        # code_verifier: (previously generated code_verifier)
+        for request in send_code_requests(challenge):
+            try:
+                res = await self.http_request(
+                    request.url,
+                    "post",
+                    headers=request.headers,
+                    data=request.data,
+                    status=None,
+                )
+            except HydroQcHTTPError:
+                self._logger.debug(
+                    "Verification code request failed (%s)",
+                    request.label,
+                    exc_info=True,
+                )
+                continue
 
-        # and the following http headers
-        # content-type: application/x-www-form-urlencoded
-        # accept:      */*
-        #
+            payload = await self._json_or_empty(res)
+            if call_succeeded(payload):
+                self._logger.info("Verification code requested (%s)", request.label)
+                return True
+            self._logger.debug(
+                "Verification code request rejected (%s): %s",
+                request.label,
+                payload_message(payload) or res.status,
+            )
 
-        # Set the HTTP request parameters
-        url = (
-            "https://connexion.solutions.hydroquebec.com/32bf9b91-0a36-4385-b231-d9a8fa3b05ab/"
-            + "b2c_1a_prd_signup_signin/oauth2/v2.0/token"
+        self._logger.warning(
+            "Could not request an e-mail verification code automatically. "
+            "The portal may already have sent one."
         )
-        headers = {"content-type": "application/x-www-form-urlencoded", "accept": "*/*"}
+        return False
 
+    async def submit_mfa_code(self, code: str) -> LoginStatus:
+        """Submit the one-time code received by e-mail and finish the login.
+
+        Raises:
+            HydroQcMFAExpiredError: no verification step is in progress, or it
+                expired; the login has to be restarted.
+            HydroQcMFAInvalidCodeError: Hydro-Quebec refused the code. The
+                verification step is still valid, another code can be tried.
+
+        """
+        challenge = self._mfa_challenge
+        if challenge is None:
+            raise HydroQcMFAExpiredError(
+                "No e-mail verification step in progress, the login has to be restarted"
+            )
+
+        code = code.strip()
+        if not code:
+            raise HydroQcMFAInvalidCodeError("Empty verification code")
+
+        last_message = ""
+        expired = False
+        for request in verify_code_requests(challenge, code):
+            try:
+                res = await self.http_request(
+                    request.url,
+                    "post",
+                    headers=request.headers,
+                    data=request.data,
+                    status=None,
+                )
+            except HydroQcHTTPError as err:
+                last_message = str(err)
+                expired = expired or err.status_code in (400, 404, 410)
+                continue
+
+            payload = await self._json_or_empty(res)
+            if call_succeeded(payload):
+                self._logger.info("Verification code accepted (%s)", request.label)
+                return await self._complete_login_after_mfa(code)
+
+            last_message = payload_message(payload) or last_message
+            expired = expired or looks_expired("", payload)
+            # Stop at the first answer the policy actually understood: trying
+            # every payload shape would burn the attempts allowed on the code.
+            if {"status", "result", "message"} & set(payload):
+                break
+
+        if expired:
+            self._logger.error("Verification step expired: %s", last_message)
+            self._mfa_challenge = None
+            raise HydroQcMFAExpiredError(
+                "The e-mail verification step expired, the login has to be restarted"
+                + (f" ({last_message})" if last_message else "")
+            )
+
+        self._logger.error("Verification code refused: %s", last_message)
+        raise HydroQcMFAInvalidCodeError(last_message or "Verification code refused")
+
+    async def _complete_login_after_mfa(self, code: str) -> LoginStatus:
+        """Finish the login once the verification code was accepted.
+
+        The browser submits the verification page as a regular ``SelfAsserted``
+        form (``request_type=RESPONSE``) and then follows its ``confirmed`` URL.
+        Doing the same gives B2C the chance to hand out the authorization code
+        that the token endpoint expects.
+        """
+        challenge = self._mfa_challenge
+        if challenge is None:
+            raise HydroQcMFAExpiredError(
+                "No e-mail verification step in progress, the login has to be restarted"
+            )
+        if challenge.csrf is None or challenge.tx is None:
+            self._logger.error(
+                "Login error: the verification page did not expose a csrf token "
+                "or a transaction id, cannot complete the login"
+            )
+            self._mfa_challenge = None
+            return LoginStatus.FAILED
+
+        request = completion_request(challenge, code)
+        try:
+            res = await self.http_request(
+                request.url,
+                "post",
+                headers=request.headers,
+                data=request.data,
+                status=None,
+            )
+        except HydroQcHTTPError:
+            # The verification itself already succeeded: keep going, the
+            # confirmed URL below is what actually advances the transaction.
+            self._logger.debug(
+                "Could not submit the verification page (%s)",
+                request.label,
+                exc_info=True,
+            )
+        else:
+            payload = await self._json_or_empty(res)
+            if payload and not call_succeeded(payload):
+                self._logger.debug(
+                    "Verification page submission refused (%s): %s",
+                    request.label,
+                    payload_message(payload) or res.status,
+                )
+
+        status = await self._advance_login(
+            challenge.csrf, challenge.tx, api=challenge.api or "SelfAsserted"
+        )
+        if status is LoginStatus.SUCCESS:
+            self._mfa_challenge = None
+        return status
+
+    async def try_silent_login(self) -> LoginStatus:
+        """Replay stored cookies without interacting with the user.
+
+        Azure AD B2C keeps a single sign-on cookie after a successful login and
+        verification. While that cookie is valid the portal issues a new
+        authorization code without a password nor a new code. Always safe to
+        call: any doubt reports :attr:`LoginStatus.FAILED` and the caller falls
+        back to :meth:`login`.
+        """
+        try:
+            return await self._silent_login()
+        except HydroQcHTTPError as err:
+            self._logger.debug("Silent login not possible: %s", err)
+            return LoginStatus.FAILED
+
+    async def _silent_login(self) -> LoginStatus:
+        """Run the ``prompt=none`` authorization request with the stored cookies."""
+        await self._get_httpsession()
+        self._code_verifier, code_challenge = generate_pkce_pair()
+
+        headers = {
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+        params = {
+            "redirect_uri": AUTH_CALLBACK_URL,
+            "client_id": AZB2C_CLIENT_ID_WEB,
+            "response_type": "code",
+            "scope": AZB2C_SCOPE_WEB,
+            "prompt": "none",
+            "ui_locales": "fr",
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+            "mobile": "false",
+        }
+        res = await self.http_request(
+            AUTHORIZE_URL,
+            "get",
+            headers=headers,
+            params=params,
+            allow_redirects=False,
+            status=None,
+        )
+        location = res.headers.get("Location", "")
+        if code := extract_auth_code(location):
+            return await self._exchange_code_for_token(code)
+        self._logger.debug(
+            "Silent login not possible (%s)",
+            extract_redirect_error(location) or f"HTTP {res.status}",
+        )
+        return LoginStatus.FAILED
+
+    async def _exchange_code_for_token(self, code: str) -> LoginStatus:
+        """Exchange an authorization code for the OAuth tokens."""
+        headers = {"content-type": "application/x-www-form-urlencoded", "accept": "*/*"}
         data = {
             "grant_type": "authorization_code",
             "client_id": AZB2C_CLIENT_ID_WEB,
             "redirect_uri": AUTH_CALLBACK_URL,
             "code": code,
-            "code_verifier": code_verifier,
+            "code_verifier": self._code_verifier,
         }
 
-        # Execute the http request
-        res = await self.http_request(url, "post", headers=headers, data=data)
-        res_json = await res.json()
+        res = await self.http_request(TOKEN_URL, "post", headers=headers, data=data)
+        payload = await self._json_or_empty(res)
+        if not payload.get("access_token"):
+            self._logger.error(
+                "Login error: the token endpoint did not return an access token (%s)",
+                payload_message(payload) or f"HTTP {res.status}",
+            )
+            return LoginStatus.FAILED
 
-        self._id_token = res_json["id_token"]
-        self.access_token = res_json["access_token"]
-        self.access_token_expiry = datetime.now() + timedelta(
-            seconds=int(res_json["expires_in"]) - AZB2C_TIMEOUT_SKEW_SECS
-        )
-        self.refresh_token = res_json["refresh_token"]
-        self.refresh_token_expiry = datetime.now() + timedelta(
-            seconds=int(res_json["refresh_token_expires_in"]) - AZB2C_TIMEOUT_SKEW_SECS
-        )
-
+        self._store_tokens(payload)
+        self._mfa_challenge = None
         self._logger.info("Login completed using %s", self.username)
+        return LoginStatus.SUCCESS
 
-        return True
+    @staticmethod
+    async def _json_or_empty(res: aiohttp.ClientResponse) -> dict[str, Any]:
+        """Decode a B2C JSON answer, tolerating HTML or empty bodies."""
+        try:
+            payload = await res.json(content_type=None)
+        except (json.JSONDecodeError, aiohttp.ContentTypeError, ValueError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
+    def _store_tokens(self, payload: Mapping[str, Any]) -> None:
+        """Store the OAuth tokens returned by B2C."""
+        self._id_token = str(payload.get("id_token") or "")
+        self.access_token = str(payload.get("access_token") or "")
+        expires_in = int(str(payload.get("expires_in") or 0))
+        self.access_token_expiry = datetime.now() + timedelta(
+            seconds=max(expires_in - AZB2C_TIMEOUT_SKEW_SECS, 0)
+        )
+        self.refresh_token = str(payload.get("refresh_token") or self.refresh_token)
+        refresh_expires_in = int(str(payload.get("refresh_token_expires_in") or 0))
+        if refresh_expires_in:
+            self.refresh_token_expiry = datetime.now() + timedelta(
+                seconds=max(refresh_expires_in - AZB2C_TIMEOUT_SKEW_SECS, 0)
+            )
+        else:
+            # B2C may omit the refresh token lifetime: keep the access token
+            # lifetime as a conservative lower bound.
+            self.refresh_token_expiry = self.access_token_expiry
+
+    def export_session_state(self) -> dict[str, Any]:
+        """Return the reusable part of the session.
+
+        The state holds the OAuth tokens and the cookies of the login host.
+        Persisting it lets a later process skip the login, and therefore skip a
+        new e-mail verification code, while the refresh token or the single
+        sign-on cookie is still valid.
+        """
+        return {
+            "refresh_token": self.refresh_token,
+            "refresh_token_expiry": self.refresh_token_expiry.isoformat(),
+            "access_token": self.access_token,
+            "access_token_expiry": self.access_token_expiry.isoformat(),
+            "cookies": (
+                serialize_cookies(self._cookie_jar)
+                if self._cookie_jar is not None
+                else []
+            ),
+        }
+
+    def import_session_state(self, state: Mapping[str, Any]) -> None:
+        """Restore a session produced by :meth:`export_session_state`."""
+        refresh_token = state.get("refresh_token")
+        if isinstance(refresh_token, str):
+            self.refresh_token = refresh_token
+
+        refresh_expiry = state.get("refresh_token_expiry")
+        if isinstance(refresh_expiry, str):
+            self.refresh_token_expiry = self._parse_datetime(refresh_expiry)
+
+        access_token = state.get("access_token")
+        if isinstance(access_token, str):
+            self.access_token = access_token
+
+        access_expiry = state.get("access_token_expiry")
+        if isinstance(access_expiry, str):
+            self.access_token_expiry = self._parse_datetime(access_expiry)
+
+        cookies = state.get("cookies")
+        if isinstance(cookies, list):
+            if self._cookie_jar is None:
+                # CookieJar captures the running event loop when created: keep
+                # the cookies until the HTTP session is actually opened.
+                self._pending_cookies = list(cookies)
+            else:
+                restore_cookies(self._cookie_jar, cookies)
+
+    @staticmethod
+    def _parse_datetime(value: str) -> datetime:
+        """Parse an ISO datetime, falling back to the current time."""
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return datetime.now()
+
+    @property
+    def mfa_required(self) -> bool:
+        """Return True while a verification code has to be submitted."""
+        return self._mfa_challenge is not None
 
     async def _refresh_token(self) -> bool:
         """Refresh current session."""
@@ -545,17 +1004,16 @@ class HydroClient:
         }
 
         res = await self.http_request(url, "post", headers=headers, data=data)
-        res_json = await res.json()
+        res_json = await self._json_or_empty(res)
 
-        self._id_token = res_json["id_token"]
-        self.access_token = res_json["access_token"]
-        self.access_token_expiry = datetime.now() + timedelta(
-            seconds=int(res_json["expires_in"]) - AZB2C_TIMEOUT_SKEW_SECS
-        )
-        self.refresh_token = res_json["refresh_token"]
-        self.refresh_token_expiry = datetime.now() + timedelta(
-            seconds=int(res_json["refresh_token_expires_in"]) - AZB2C_TIMEOUT_SKEW_SECS
-        )
+        if not res_json.get("access_token"):
+            self._logger.error(
+                "Token refresh failed (%s)",
+                payload_message(res_json) or f"HTTP {res.status}",
+            )
+            return False
+
+        self._store_tokens(res_json)
 
         return True
 
@@ -567,7 +1025,20 @@ class HydroClient:
         """Get an access token."""
         if self.is_session_expired():
             await self.close_session()
-            await self.login()
+            # The single sign-on cookie may outlive the refresh token lifetime:
+            # replay it before asking for the password again, it also skips a
+            # new e-mail verification code.
+            if await self.try_silent_login() is LoginStatus.SUCCESS:
+                return self.access_token
+            status = await self.login()
+            if status is LoginStatus.MFA_REQUIRED:
+                raise HydroQcMFARequiredError(
+                    "Hydro-Quebec now asks for an e-mail verification code: an "
+                    "interactive login is required, a background refresh cannot "
+                    "provide it"
+                )
+            if status is not LoginStatus.SUCCESS:
+                raise HydroQcError("Hydro-Quebec login failed")
         elif force_refresh or self.access_token_expiry < datetime.now():
             await self._refresh_token()
 
@@ -589,8 +1060,13 @@ class HydroClient:
         """Create a web session from a OAuth access_token."""
         self._logger.debug("Creating new web session %s", contract_id)
 
-        # Clearing all cookies. New SESSION must be created.
-        self._cookie_jar.clear()
+        # Clearing the portal session cookies. The Azure AD B2C cookies of the
+        # login host are kept: they carry the single sign-on / trusted device
+        # state, which lets a later login skip the e-mail verification code.
+        if self._cookie_jar is not None:
+            for url in (HOST_SESSION, HOST_SERVICES):
+                if host := yarl.URL(url).host:
+                    clear_cookies_for_host(self._cookie_jar, host)
 
         # Forcing a refresh of the access token.
         # The new session that is created with SESSION_URL (/portal resources)
