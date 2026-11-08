@@ -65,6 +65,10 @@ class WebUser:
         """Check if the Hydro Quebec website/portal is available."""
         return await self._hydro_client.check_portal_status()
 
+    async def get_hq_portal_unavailability(self) -> dict[str, str] | None:
+        """Return the planned Hydro Quebec unavailability in effect, if any."""
+        return await self._hydro_client.get_portal_unavailability()
+
     async def login(self) -> LoginStatus:
         """Login to Hydroquebec website.
 

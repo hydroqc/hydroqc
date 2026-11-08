@@ -53,6 +53,9 @@ from hydroqc.hydro_api.consts import (
     OPEN_DATA_PEAK_URL,
     OUTAGES,
     PERIOD_DATA_URL,
+    PORTAL_UNAVAILABILITY_DATE_FORMAT,
+    PORTAL_UNAVAILABILITY_SERVICES,
+    PORTAL_UNAVAILABILITY_URL,
     PORTRAIT_URL,
     RELATION_URL,
     REQUESTS_TIMEOUT,
@@ -406,8 +409,77 @@ class HydroClient:
             await self._session.close()
             self._session = None
 
+    async def get_portal_unavailability(self) -> dict[str, str] | None:
+        """Return the planned unavailability window in effect, if any.
+
+        Reads the feed the Espace client uses to show its maintenance page. The
+        result holds ``service``, ``from``, ``to`` (Hydro-Quebec local time) and
+        the ``messages_fr``/``messages_en`` HTML. ``None`` when no window covers
+        the current time or when the feed cannot be read.
+        """
+        await self._get_httpsession()
+        try:
+            # Same cache buster as the Espace client, so an early end shows up.
+            params = {"date": str(int(datetime.now().timestamp() * 1000))}
+            response = await self.http_request(
+                PORTAL_UNAVAILABILITY_URL, "get", params=params, status=None
+            )
+            if response.status != 200:
+                self._logger.debug(
+                    "Unavailability feed answered HTTP %s", response.status
+                )
+                return None
+            feed = await response.json(content_type=None)
+        except (HydroQcError, aiohttp.ClientError, asyncio.TimeoutError, ValueError):
+            self._logger.debug("Could not read the unavailability feed", exc_info=True)
+            return None
+        if not isinstance(feed, dict):
+            return None
+
+        now = datetime.now(EST_TIMEZONE)
+        for service in PORTAL_UNAVAILABILITY_SERVICES:
+            windows = feed.get(service)
+            if not isinstance(windows, list):
+                continue
+            for window in windows:
+                try:
+                    start = EST_TIMEZONE.localize(
+                        datetime.strptime(
+                            window["from"], PORTAL_UNAVAILABILITY_DATE_FORMAT
+                        )
+                    )
+                    end = EST_TIMEZONE.localize(
+                        datetime.strptime(
+                            window["to"], PORTAL_UNAVAILABILITY_DATE_FORMAT
+                        )
+                    )
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if start <= now < end:
+                    return {
+                        "service": service,
+                        "from": window["from"],
+                        "to": window["to"],
+                        "messages_fr": str(window.get("messages_fr", "")),
+                        "messages_en": str(window.get("messages_en", "")),
+                    }
+        return None
+
     async def check_portal_status(self) -> bool:
-        """Check if Hydro Quebec portal is UP."""
+        """Check if Hydro Quebec portal is UP.
+
+        The portal page keeps answering 200 during a planned maintenance, so the
+        unavailability feed is checked first.
+        """
+        if (unavailability := await self.get_portal_unavailability()) is not None:
+            self._logger.info(
+                "Hydro Quebec announces a maintenance of %s from %s to %s",
+                unavailability["service"],
+                unavailability["from"],
+                unavailability["to"],
+            )
+            return False
+
         # Get http session
         await self._get_httpsession()
         self._logger.info("Checking if the Hydro Quebec portal is UP")

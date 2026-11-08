@@ -140,8 +140,6 @@ GET_CPC_API_URL = (
 )
 # IS PORTAL RUNNING
 IS_HYDRO_PORTAL_UP_URL = f"{HOST_SESSION}/portail/fr/group/clientele/gerer-mon-compte"
-
-
 @dataclass(frozen=True)
 class AuthClient:
     """Azure B2C client used to log in, with the private API it can call."""
@@ -196,3 +194,11 @@ AUTH_CLIENTS = {
         api_channel="mobile",
     ),
 }
+
+# Maintenance windows the Espace client reads (indisponibiliteUrl in its config/app.json).
+PORTAL_UNAVAILABILITY_URL = (
+    "https://clientele-statique.solutions.hydroquebec.com/config/indispo/"
+    "indisponibilites.json"
+)
+PORTAL_UNAVAILABILITY_SERVICES = ("libreService", "appMobileAuthentifiee")
+PORTAL_UNAVAILABILITY_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
