@@ -12,6 +12,7 @@ from hydroqc.consts import LoginStatus
 from hydroqc.customer import Customer
 from hydroqc.error import HydroQcError
 from hydroqc.hydro_api.client import HydroClient
+from hydroqc.hydro_api.consts import AUTH_CLIENT_WEB
 from hydroqc.logger import get_logger
 
 
@@ -35,8 +36,13 @@ class WebUser:
         cookie_jar: aiohttp.CookieJar | None = None,
         refresh_token: str = "",
         refresh_token_expiry: datetime | None = None,
+        auth_client: str = AUTH_CLIENT_WEB,
     ):
-        """Create a new Hydroquebec webuser."""
+        """Create a new Hydroquebec webuser.
+
+        ``auth_client`` selects the B2C client, ``"web"`` (default) or
+        ``"mobile"``, see :class:`HydroClient`.
+        """
         self._hydro_client = HydroClient(
             username,
             password,
@@ -47,6 +53,7 @@ class WebUser:
             cookie_jar=cookie_jar,
             refresh_token=refresh_token,
             refresh_token_expiry=refresh_token_expiry,
+            auth_client=auth_client,
         )
         self._username: str = username
         self._log_level: str | None = log_level

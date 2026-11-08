@@ -5,6 +5,8 @@
     avoid all the /portail/ URLs
 """
 
+from dataclasses import dataclass
+
 # Always get the time using HydroQuebec Local Time
 REQUESTS_TIMEOUT = 30
 REQUESTS_TTL = 1
@@ -26,6 +28,11 @@ AZB2C_RESPONSE_TYPE = "code"
 AZB2C_SCOPE_WEB = (
     "openid https://connexionhq.onmicrosoft.com/hq-clientele/Espace.Client"
 )
+AZB2C_POLICY_MOBILE = "B2C_1A_PRD_signup_signin_mobile"
+AZB2C_SCOPE_MOBILE = (
+    "openid offline_access "
+    "https://connexionhq.onmicrosoft.com/hq-clientele-mobile/Espace.Client"
+)
 AZB2C_CODE_CHALLENGE_METHOD = "S256"
 
 # Time to remove from the token expiration time to avoid calls to fail
@@ -39,6 +46,9 @@ AUTHORIZE_URL = (
 )
 AUTH_URL = f"{HOST_LOGIN}/{AZB2C_TENANT_ID}/{AZB2C_POLICY}/SelfAsserted"
 AUTH_CALLBACK_URL = f"{HOST_SESSION}/oauth2/callback"
+AUTH_CALLBACK_URL_MOBILE = (
+    "msauth://com.hydroquebec.mf_android/2TD6UgHUYzHyQirztabBgWTrJNs%3D"
+)
 TOKEN_URL = f"{HOST_LOGIN}/{AZB2C_TENANT_ID}/{AZB2C_POLICY.lower()}/oauth2/v2.0/token"
 
 CHECK_SESSION_URL = f"{HOST_LOGIN}/hqam/oauth2/connect/checkSession"
@@ -130,3 +140,59 @@ GET_CPC_API_URL = (
 )
 # IS PORTAL RUNNING
 IS_HYDRO_PORTAL_UP_URL = f"{HOST_SESSION}/portail/fr/group/clientele/gerer-mon-compte"
+
+
+@dataclass(frozen=True)
+class AuthClient:
+    """Azure B2C client used to log in, with the private API it can call."""
+
+    client_id: str
+    policy: str
+    scope: str
+    redirect_uri: str
+    # Path segment of the private API: /wsapi/<api_channel>/prive/...
+    api_channel: str
+
+    @property
+    def authorize_url(self) -> str:
+        """Return the authorize endpoint of the policy."""
+        return (
+            f"{HOST_LOGIN}/{AZB2C_TENANT_ID}/{self.policy.lower()}"
+            "/oauth2/v2.0/authorize"
+        )
+
+    @property
+    def auth_url(self) -> str:
+        """Return the SelfAsserted endpoint of the policy."""
+        return f"{HOST_LOGIN}/{AZB2C_TENANT_ID}/{self.policy}/SelfAsserted"
+
+    @property
+    def token_url(self) -> str:
+        """Return the token endpoint of the policy."""
+        return f"{HOST_LOGIN}/{AZB2C_TENANT_ID}/{self.policy.lower()}/oauth2/v2.0/token"
+
+    def api_url(self, url: str) -> str:
+        """Return a private API URL (declared on /wsapi/web/) for this client."""
+        return url.replace("/wsapi/web/", f"/wsapi/{self.api_channel}/", 1)
+
+
+AUTH_CLIENT_WEB = "web"
+AUTH_CLIENT_MOBILE = "mobile"
+AUTH_CLIENTS = {
+    AUTH_CLIENT_WEB: AuthClient(
+        client_id=AZB2C_CLIENT_ID_WEB,
+        policy=AZB2C_POLICY,
+        scope=AZB2C_SCOPE_WEB,
+        redirect_uri=AUTH_CALLBACK_URL,
+        api_channel="web",
+    ),
+    # Client of the official Android app: offline_access gives it a 90-day
+    # sliding refresh token, so the e-mail code is not asked every day.
+    AUTH_CLIENT_MOBILE: AuthClient(
+        client_id=AZB2C_CLIENT_ID_MOBILE,
+        policy=AZB2C_POLICY_MOBILE,
+        scope=AZB2C_SCOPE_MOBILE,
+        redirect_uri=AUTH_CALLBACK_URL_MOBILE,
+        api_channel="mobile",
+    ),
+}

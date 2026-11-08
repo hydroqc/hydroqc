@@ -31,12 +31,9 @@ from hydroqc.error import (
 from hydroqc.hydro_api.cache import CCached
 from hydroqc.hydro_api.consts import (
     ANNUAL_DATA_URL,
-    AUTH_CALLBACK_URL,
-    AUTH_URL,
-    AUTHORIZE_URL,
+    AUTH_CLIENT_WEB,
+    AUTH_CLIENTS,
     AZB2C_CLIENT_ID_WEB,
-    AZB2C_POLICY,
-    AZB2C_SCOPE_WEB,
     AZB2C_TIMEOUT_SKEW_SECS,
     CONSO_CSV_URL,
     CONSO_OVERVIEW_CSV_URL,
@@ -60,7 +57,6 @@ from hydroqc.hydro_api.consts import (
     RELATION_URL,
     REQUESTS_TIMEOUT,
     SESSION_URL,
-    TOKEN_URL,
 )
 from hydroqc.hydro_api.mfa import (
     B2CPage,
@@ -128,6 +124,7 @@ class HydroClient:
         cookie_jar: aiohttp.CookieJar | None = None,
         refresh_token: str = "",
         refresh_token_expiry: datetime | None = None,
+        auth_client: str = AUTH_CLIENT_WEB,
     ):
         """Initialize the client object.
 
@@ -153,8 +150,17 @@ class HydroClient:
                 needed. Defaults to "".
             refresh_token_expiry: Expiry of ``refresh_token``. Defaults to None,
                 which marks the session as already expired.
+            auth_client: B2C client to log in with, ``"web"`` (the Espace
+                client) or ``"mobile"`` (the Android app, whose refresh token
+                lasts 90 days). Defaults to ``"web"``.
+
+        Raises:
+            ValueError: ``auth_client`` is not a known client.
 
         """
+        if auth_client not in AUTH_CLIENTS:
+            raise ValueError(f"Unknown auth_client: {auth_client!r}")
+        self._auth = AUTH_CLIENTS[auth_client]
         self.username: str = username
         self.password: str = password
         self._timeout: int = timeout
@@ -482,10 +488,10 @@ class HydroClient:
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         }
         params = {
-            "redirect_uri": AUTH_CALLBACK_URL,
-            "client_id": AZB2C_CLIENT_ID_WEB,
+            "redirect_uri": self._auth.redirect_uri,
+            "client_id": self._auth.client_id,
             "response_type": "code",
-            "scope": AZB2C_SCOPE_WEB,
+            "scope": self._auth.scope,
             "prompt": prompt,
             "ui_locales": "fr",
             "code_challenge": code_challenge,
@@ -496,7 +502,11 @@ class HydroClient:
         # Allow redirects for the initial authorize call
         # (Azure B2C sometimes issues a 302 before the final HTML)
         res = await self.http_request(
-            AUTHORIZE_URL, "get", headers=headers, params=params, allow_redirects=True
+            self._auth.authorize_url,
+            "get",
+            headers=headers,
+            params=params,
+            allow_redirects=True,
         )
         if res.status != 200:
             self._logger.error(
@@ -514,7 +524,7 @@ class HydroClient:
         ``signInName`` and ``password``, the ``x-csrf-token`` header set to the
         value extracted from the sign-in page and the session cookies.
         """
-        url = AUTH_URL + "?tx=" + transid + "&p=" + AZB2C_POLICY
+        url = self._auth.auth_url + "?tx=" + transid + "&p=" + self._auth.policy
         headers = {
             "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
             "accept": "application/json, text/javascript, */*; q=0.01",
@@ -556,7 +566,7 @@ class HydroClient:
         ``SelfAsserted`` when the call follows the verification page.
         """
         url = (
-            AUTH_URL.rsplit("/", 1)[0]
+            self._auth.auth_url.rsplit("/", 1)[0]
             + "/api/"
             + api
             + "/confirmed?csrf_token="
@@ -564,7 +574,7 @@ class HydroClient:
             + "&tx="
             + transid
             + "&p="
-            + AZB2C_POLICY
+            + self._auth.policy
         )
         if api == "CombinedSigninAndSignup":
             url += "&rememberMe=false"
@@ -846,10 +856,10 @@ class HydroClient:
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         }
         params = {
-            "redirect_uri": AUTH_CALLBACK_URL,
-            "client_id": AZB2C_CLIENT_ID_WEB,
+            "redirect_uri": self._auth.redirect_uri,
+            "client_id": self._auth.client_id,
             "response_type": "code",
-            "scope": AZB2C_SCOPE_WEB,
+            "scope": self._auth.scope,
             "prompt": "none",
             "ui_locales": "fr",
             "code_challenge": code_challenge,
@@ -857,7 +867,7 @@ class HydroClient:
             "mobile": "false",
         }
         res = await self.http_request(
-            AUTHORIZE_URL,
+            self._auth.authorize_url,
             "get",
             headers=headers,
             params=params,
@@ -878,13 +888,15 @@ class HydroClient:
         headers = {"content-type": "application/x-www-form-urlencoded", "accept": "*/*"}
         data = {
             "grant_type": "authorization_code",
-            "client_id": AZB2C_CLIENT_ID_WEB,
-            "redirect_uri": AUTH_CALLBACK_URL,
+            "client_id": self._auth.client_id,
+            "redirect_uri": self._auth.redirect_uri,
             "code": code,
             "code_verifier": self._code_verifier,
         }
 
-        res = await self.http_request(TOKEN_URL, "post", headers=headers, data=data)
+        res = await self.http_request(
+            self._auth.token_url, "post", headers=headers, data=data
+        )
         payload = await self._json_or_empty(res)
         if not payload.get("access_token"):
             self._logger.error(
@@ -934,6 +946,7 @@ class HydroClient:
         sign-on cookie is still valid.
         """
         return {
+            "client_id": self._auth.client_id,
             "refresh_token": self.refresh_token,
             "refresh_token_expiry": self.refresh_token_expiry.isoformat(),
             "access_token": self.access_token,
@@ -946,7 +959,23 @@ class HydroClient:
         }
 
     def import_session_state(self, state: Mapping[str, Any]) -> None:
-        """Restore a session produced by :meth:`export_session_state`."""
+        """Restore a session produced by :meth:`export_session_state`.
+
+        The tokens are restored only when the state records the current client
+        id. A state with no ``client_id`` predates this field and comes from
+        the web client. Tokens of another client cannot be refreshed here, so
+        they are dropped and the caller gets a plain interactive login. The
+        login host cookies are restored either way, as they belong to the host
+        and not to one client.
+        """
+        if state.get("client_id", AZB2C_CLIENT_ID_WEB) != self._auth.client_id:
+            self._logger.info(
+                "Ignoring the tokens of a stored session issued for another "
+                "B2C client (an interactive login is required)"
+            )
+            self._restore_session_cookies(state)
+            return
+
         refresh_token = state.get("refresh_token")
         if isinstance(refresh_token, str):
             self.refresh_token = refresh_token
@@ -963,6 +992,10 @@ class HydroClient:
         if isinstance(access_expiry, str):
             self.access_token_expiry = self._parse_datetime(access_expiry)
 
+        self._restore_session_cookies(state)
+
+    def _restore_session_cookies(self, state: Mapping[str, Any]) -> None:
+        """Restore the login host cookies of a stored session."""
         cookies = state.get("cookies")
         if isinstance(cookies, list):
             if self._cookie_jar is None:
@@ -989,15 +1022,15 @@ class HydroClient:
         """Refresh current session."""
         self._logger.debug("Refreshing access token")
 
-        url = TOKEN_URL
+        url = self._auth.token_url
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json, text/plain, */*",
         }
         data = {
             "grant_type": "refresh_token",
-            "scope": AZB2C_SCOPE_WEB,
-            "client_id": AZB2C_CLIENT_ID_WEB,
+            "scope": self._auth.scope,
+            "client_id": self._auth.client_id,
             "refresh_token": self.refresh_token,
         }
 
@@ -1113,7 +1146,9 @@ class HydroClient:
             "Content-Type": "application/json",
             "Authorization": "Bearer " + await self._get_access_token(),
         }
-        res = await self.http_request(RELATION_URL, "get", headers=headers)
+        res = await self.http_request(
+            self._auth.api_url(RELATION_URL), "get", headers=headers
+        )
         # TODO http errors
         data: list[AccountTyping] = await res.json()
         return data
@@ -1127,7 +1162,7 @@ class HydroClient:
         headers = await self._get_customer_http_headers(applicant_id, customer_id)
         params = {"withCredentials": "true"}
         api_call_response = await self.http_request(
-            CUSTOMER_INFO_URL,
+            self._auth.api_url(CUSTOMER_INFO_URL),
             "get",
             headers=headers,
             params=params,
@@ -1173,7 +1208,9 @@ class HydroClient:
     ) -> AccountContractSummaryTyping:
         """Get all  account_contract linked to a customer."""
         headers = await self._get_customer_http_headers(applicant_id, customer_id)
-        res = await self.http_request(CONTRACT_SUMMARY_URL, "get", headers=headers)
+        res = await self.http_request(
+            self._auth.api_url(CONTRACT_SUMMARY_URL), "get", headers=headers
+        )
         data: AccountContractSummaryTyping = await res.json()
         return data
 
@@ -1201,7 +1238,10 @@ class HydroClient:
         }
         post_data_str = json_dumps(post_data)
         res = await self.http_request(
-            CONTRACT_LIST_URL, "post", headers=headers, data=post_data_str
+            self._auth.api_url(CONTRACT_LIST_URL),
+            "post",
+            headers=headers,
+            data=post_data_str,
         )
         data: ListContractsTyping = await res.json()
         # We ask only one contract, so we should have only one
@@ -1221,7 +1261,7 @@ class HydroClient:
         headers = await self._get_customer_http_headers(applicant_id, customer_id)
         params = {"noContrat": contract_id}
         api_call_response = await self.http_request(
-            GET_CPC_API_URL,
+            self._auth.api_url(GET_CPC_API_URL),
             "get",
             headers=headers,
             params=params,
@@ -1396,7 +1436,7 @@ class HydroClient:
         headers = await self._get_customer_http_headers(applicant_id, customer_id)
         params = {"noContrat": contract_id}
         api_call_response = await self.http_request(
-            FLEXD_DATA_URL, "get", params=params, headers=headers
+            self._auth.api_url(FLEXD_DATA_URL), "get", params=params, headers=headers
         )
         # We can not use res.json() because the response header are not application/json
         data: DPCDataTyping = self._load_json(await api_call_response.text())
