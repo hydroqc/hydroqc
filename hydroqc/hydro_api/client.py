@@ -361,7 +361,9 @@ class HydroClient:
         raw_token_data = self._id_token.split(".")[1]
         # In some cases padding get lost, adding it to avoid issues with base64 decode
         raw_token_data += "=" * ((4 - len(raw_token_data) % 4) % 4)
-        token_data: IDTokenTyping = self._load_json(base64.b64decode(raw_token_data))
+        token_data: IDTokenTyping = self._load_json(
+            base64.urlsafe_b64decode(raw_token_data)
+        )
         return token_data
 
     async def _get_httpsession(self) -> None:
