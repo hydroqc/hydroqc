@@ -319,7 +319,7 @@ class HydroClient:
             self._diag_id += 1
 
         if status is not None and raw_res.status != status:
-            self._logger.exception("Exception in http_request")
+            self._logger.error("HTTP %s from %s", raw_res.status, url.split("?")[0])
             data = await raw_res.text()
             self._logger.debug(data)
             raise HydroQcHTTPError(
