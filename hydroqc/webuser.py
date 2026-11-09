@@ -65,14 +65,18 @@ class WebUser:
         """Check if the Hydro Quebec website/portal is available."""
         return await self._hydro_client.check_portal_status()
 
-    async def login(self) -> LoginStatus:
+    async def login(self, *, send_mfa_code: bool = True) -> LoginStatus:
         """Login to Hydroquebec website.
 
         Returns :attr:`LoginStatus.MFA_REQUIRED` when Hydro-Quebec asks for an
         e-mail verification code. The login is then incomplete until
         :meth:`submit_mfa_code` is called with the received code.
+
+        Set ``send_mfa_code`` to ``False`` to stop at that step without asking
+        the portal to send a code, for a caller that cannot ask the user for
+        it right away; :meth:`request_mfa_code` sends it later.
         """
-        return await self._hydro_client.login()
+        return await self._hydro_client.login(send_mfa_code=send_mfa_code)
 
     async def try_silent_login(self) -> LoginStatus:
         """Try to log in with the stored session, without any user interaction.

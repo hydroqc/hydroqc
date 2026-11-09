@@ -96,7 +96,11 @@ verification step expires after a few minutes (3 minutes on the current
 portal): `HydroQcMFAExpiredError` means the login has to be restarted.
 
 A silent background login cannot ask for a code and raises
-`HydroQcMFARequiredError` instead of failing quietly.
+`HydroQcMFARequiredError` instead of failing quietly. A caller that cannot ask
+the user for a code right away (a scheduled job, an automation) can stop at the
+verification step without making the portal send an e-mail:
+`await webuser.login(send_mfa_code=False)` returns `LoginStatus.MFA_REQUIRED`,
+and `request_mfa_code()` sends the code once the user is ready to type it.
 
 ### Reusing a session
 
