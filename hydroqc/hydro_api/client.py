@@ -1061,7 +1061,7 @@ class HydroClient:
             # new e-mail verification code.
             if await self.try_silent_login() is LoginStatus.SUCCESS:
                 return self.access_token
-            status = await self.login()
+            status = await self.login(send_mfa_code=False)
             if status is LoginStatus.MFA_REQUIRED:
                 raise HydroQcMFARequiredError(
                     "Hydro-Quebec now asks for an e-mail verification code: an "
