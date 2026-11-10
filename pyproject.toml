@@ -40,6 +40,7 @@ include = ["hydroqc*"]
 
 [project.scripts]
 hydroqc-diag = "hydroqc.diagnostic:main"
+hydroqc-capture = "hydroqc.capture:main"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "module"

@@ -52,15 +52,14 @@ def get_env_vars() -> list[list[str | bool | int | None]]:
     """Fetch all env var available for test loop."""
     params_list = []
     # TODO DEPRECATED
-    deprecated_params = []
-    for param in PARAMS_LIST:
-        env_var = f"{PARAMS_PREFIX}_{param[0]}"
-        try:
-            deprec_value: str | int | bool | None = param[1](env_var)
-            deprecated_params.append(deprec_value)
-        except KeyError:
-            continue
-    params_list.append(deprecated_params)
+    try:
+        deprecated_params: list[str | bool | int | None] = [
+            param[1](f"{PARAMS_PREFIX}_{param[0]}") for param in PARAMS_LIST
+        ]
+    except KeyError:
+        pass
+    else:
+        params_list.append(deprecated_params)
     # END DEPRECATED
 
     # find the highest index in the env vars (HYDROQC_???_...)

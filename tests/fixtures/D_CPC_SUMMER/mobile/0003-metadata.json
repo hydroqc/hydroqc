@@ -1,0 +1,11 @@
+{
+  "profile": "mobile",
+  "sequence": 3,
+  "request_method": "get",
+  "request_path": "/lsw/portail/prive/maj-session/",
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body_file": "0003-response.txt"
+}

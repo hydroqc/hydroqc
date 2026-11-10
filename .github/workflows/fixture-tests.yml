@@ -1,0 +1,45 @@
+name: Fixture tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-tests:
+    name: Unit and scenario tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: test_requirements.txt
+      - name: Install project and test dependencies
+        run: python -m pip install -e . -r test_requirements.txt
+      - name: Run unit and fixture replay tests with coverage
+        run: >-
+          python -m pytest -q tests/unit tests/scenarios
+          --cov=hydroqc
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+      - name: Upload coverage report to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          flags: fixture-tests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Archive coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixture-test-coverage
+          path: coverage.xml
+          if-no-files-found: ignore

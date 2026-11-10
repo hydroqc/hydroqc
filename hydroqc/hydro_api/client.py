@@ -9,7 +9,7 @@ import os
 import platform
 import socket
 import uuid
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import date, datetime, timedelta
 from importlib.metadata import PackageNotFoundError, version
 from io import StringIO
@@ -98,6 +98,10 @@ from hydroqc.types import (
 )
 from hydroqc.utils import EST_TIMEZONE
 
+ResponseCaptureCallback = Callable[
+    [str, str, aiohttp.ClientResponse, bytes], None
+]
+
 # Host serving the Azure AD B2C pages. Its cookies hold the login transaction
 # and the single sign-on state: they are the ones worth persisting to skip a
 # later e-mail verification code.
@@ -108,6 +112,7 @@ class HydroClient:
     """HydroQc HTTP Client."""
 
     _cookie_jar: aiohttp.CookieJar | None
+    response_capture_callback: ResponseCaptureCallback | None
 
     def __init__(
         self,
@@ -125,6 +130,7 @@ class HydroClient:
         refresh_token: str = "",
         refresh_token_expiry: datetime | None = None,
         auth_client: str = AUTH_CLIENT_WEB,
+        response_capture_callback: ResponseCaptureCallback | None = None,
     ):
         """Initialize the client object.
 
@@ -153,6 +159,8 @@ class HydroClient:
             auth_client: B2C client to log in with, ``"web"`` (the Espace
                 client) or ``"mobile"`` (the Android app, whose refresh token
                 lasts 90 days). Defaults to ``"web"``.
+            response_capture_callback: Optional callback invoked with each HTTP
+                response and its raw body after the request completes.
 
         Raises:
             ValueError: ``auth_client`` is not a known client.
@@ -169,6 +177,7 @@ class HydroClient:
         self.enable_cache: bool = enable_cache
         self._family: socket.AddressFamily = family  # pylint: disable=no-member
         self._cookie_jar = cookie_jar
+        self.response_capture_callback = response_capture_callback
 
         # Azure AD B2C login state
         self._code_verifier: str = ""
@@ -298,6 +307,10 @@ class HydroClient:
             ssl=verify_ssl,
             headers=headers,
         )
+
+        if self.response_capture_callback is not None:
+            response_body = await raw_res.read()
+            self.response_capture_callback(url, method, raw_res, response_body)
 
         # Result Diagnostic
         if self._diag_folder is not None:

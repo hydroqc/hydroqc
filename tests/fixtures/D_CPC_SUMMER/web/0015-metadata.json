@@ -1,0 +1,11 @@
+{
+  "profile": "web",
+  "sequence": 15,
+  "request_method": "get",
+  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesQuotidiennesConsommation",
+  "status": 200,
+  "headers": {
+    "Content-Type": "text/json;charset=UTF-8"
+  },
+  "body_file": "0015-response.json"
+}

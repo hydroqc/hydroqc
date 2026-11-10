@@ -2,6 +2,7 @@
 
 
 [![CI](https://github.com/hydroqc/hydroqc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hydroqc/hydroqc/actions/workflows/ci.yml)
+[![Fixture test coverage](https://codecov.io/gh/hydroqc/hydroqc/branch/main/graph/badge.svg)](https://codecov.io/gh/hydroqc/hydroqc)
 [![PyPI](https://img.shields.io/pypi/v/Hydro-Quebec-API-Wrapper.svg)](https://pypi.org/project/Hydro-Quebec-API-Wrapper/)
 
 
@@ -54,6 +55,85 @@ Thanks to [HD Énergie](https://hd.energy) for sponsoring developpement of the R
 
 ### Other plans
 We don't have anyone to test with. Please reach out to us if you have this plan and want to help!
+
+## Adding replay fixtures
+
+Replay fixtures let the regular test suite exercise contract scenarios without
+making live Hydro-Québec requests. To capture a new contract type, use a
+Hydro-Québec account that has that contract and run the capture command from the
+repository root:
+
+```bash
+python -m venv .venv  # skip if the virtual environment already exists
+.venv/bin/python -m pip install -e . -r test_requirements.txt
+.venv/bin/hydroqc-capture --contract <contract-number>
+```
+
+For a contract captured during its winter period, add `--winter-period` so its
+fixtures are kept separately from non-winter data:
+
+```bash
+.venv/bin/hydroqc-capture --contract <contract-number> --winter-period
+```
+
+If the virtual environment is already active, use `hydroqc-capture` instead of
+`.venv/bin/hydroqc-capture`. The command prompts for the username and, when
+needed, the password and MFA code. It captures both the web and mobile API
+profiles and runs the contract operations discovered by the capture script.
+
+After a successful capture, the script pseudonymizes the responses and installs
+them automatically under `tests/fixtures/`:
+
+```text
+tests/fixtures/
+  common/                 # contract-selection responses shared by scenarios
+    scenario.json
+    web/
+    mobile/
+  D_CPC_SUMMER/            # non-winter capture of a rate and option
+  DT_SUMMER/               # non-winter capture of a rate without an option
+  D_CPC_WINTER/            # winter capture of a rate with an option
+  G_WINTER/                # winter capture of a rate without an option
+  M_GDP_WINTER/            # winter capture of another rate option
+```
+
+The scenario directory is named from the captured rate and option, joined by
+an underscore when an option exists, then suffixed with `_SUMMER` or `_WINTER`
+(for example, `D_CPC_SUMMER` or `M_GDP_WINTER`). A capture for an existing
+scenario replaces that scenario's recorded responses;
+the shared `common` responses are also refreshed. Review the fixture diff to
+make sure it contains the expected profile and scenario before committing it.
+The `--winter-period` flag selects the `_WINTER` suffix and records
+`"winter_period": true` in its `scenario.json`; without the flag, the scenario
+gets a `_SUMMER` suffix and the field is `false`. This works with any rate and
+option, including G and M: for example, `G_SUMMER` / `G_WINTER` or
+`M_GDP_SUMMER` / `M_GDP_WINTER`. The separate folders keep each season's
+responses apart.
+
+The capture pseudonymizes customer, account, contract, location, and contact
+details. It preserves consumption readings and their dates, so these are
+pseudonymized fixtures—not fully anonymized data—and should still be handled
+carefully. Monetary amounts are synthesized. OAuth token responses are not
+installed as fixtures. On success, the sensitive raw capture is deleted. Do
+not use `--keep-raw` for a normal fixture contribution, and never commit or
+share a raw capture. If capture fails, it prints the location of the raw files
+for local diagnosis; remove them securely when finished.
+
+Add one full scenario test for each contract type in `tests/scenarios/`, using
+`tests/scenarios/test_d_cpc.py` as the template. Parameterize the test over
+`web` and `mobile`, load the shared `common` fixtures followed by that
+contract's fixtures, and replay the complete scenario through
+`run_contract_scenario`. Assert the expected rate and option, and assert that
+the replay transport consumed every recorded response. The common selection
+fixtures are inputs to each full scenario; they are not a separate scenario
+test.
+
+Run the new scenario without network access, then run all safe local tests:
+
+```bash
+.venv/bin/python -m pytest -q tests/scenarios/test_<scenario>.py
+.venv/bin/python -m pytest -q tests/unit tests/scenarios
+```
 
 ## Documentation
 

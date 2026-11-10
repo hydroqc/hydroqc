@@ -1,0 +1,8 @@
+{
+  "contract_id": "FIXTURE-CONTRACT-001",
+  "context": [
+    "FIXTURE-APPLICANT-001",
+    "FIXTURE-CUSTOMER-002",
+    "FIXTURE-ACCOUNT-001"
+  ]
+}

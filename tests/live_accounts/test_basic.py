@@ -1,6 +1,7 @@
 """Basics tests for hydroqc."""
 
 import parameterized  # type: ignore
+import pytest
 
 from .subtest_common import SubTestCommon
 from .subtest_contract_d import SubTestContractD
@@ -10,6 +11,13 @@ from .subtest_contract_dt import SubTestContractDT
 from .subtest_contract_m import SubTestContractM
 from .subtest_contract_m_gdp import SubTestContractMGDP
 from .tools import get_env_vars
+
+LIVE_ACCOUNT_CASES = get_env_vars()
+if not LIVE_ACCOUNT_CASES:
+    pytest.skip(
+        "Configure Hydro-Québec account variables to run live-account tests.",
+        allow_module_level=True,
+    )
 
 
 def disable_non_parameterized_tests(
@@ -42,7 +50,7 @@ def disable_non_parameterized_tests(
         "HYDROQC_WC_ENABLED",
         "HYDROQC_ACCOUNT_ID",
     ),
-    get_env_vars(),
+    LIVE_ACCOUNT_CASES,
 )
 class TestBase(
     SubTestContractMGDP,
