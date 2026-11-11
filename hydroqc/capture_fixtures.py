@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit
 
+from hydroqc.hydro_api.consts import IS_HYDRO_PORTAL_UP_URL, OPEN_DATA_PEAK_URL
 from hydroqc.types.contract import ContractTyping, ListContractsTyping
 
 
@@ -576,3 +577,103 @@ def anonymize_capture_to_fixtures(
             replace_existing=replace_existing,
         )
     return scenario_name
+
+
+def install_public_capture_to_fixtures(
+    capture_root: Path,
+    fixture_root: Path,
+    reference_date: str,
+    *,
+    fixture_name: str,
+    winter_period: bool = False,
+    replace_existing: bool = False,
+) -> Path:
+    """Install sanitized replay fixtures for public peak-data requests."""
+    fixture_name = validate_fixture_name(fixture_name)
+    response_folder = capture_root / "public"
+    responses: list[CapturedResponse] = []
+    for metadata_path in sorted(response_folder.glob("*-metadata.json")):
+        metadata: dict[str, Any] = json.loads(metadata_path.read_text(encoding="utf-8"))
+        request_url = str(metadata.get("request_url", ""))
+        if "/oauth2/v2.0/token" in request_url.casefold():
+            continue
+        responses.append(
+            CapturedResponse(
+                "public",
+                metadata,
+                urlsplit(request_url).path,
+                (response_folder / metadata["body_file"]).read_bytes(),
+            )
+        )
+
+    expected_paths = {
+        urlsplit(IS_HYDRO_PORTAL_UP_URL).path,
+        urlsplit(OPEN_DATA_PEAK_URL).path,
+    }
+    captured_paths = {response.path for response in responses}
+    if missing_paths := expected_paths - captured_paths:
+        raise ValueError(
+            "La capture publique est incomplète; réponse absente pour : "
+            + ", ".join(sorted(missing_paths))
+        )
+
+    with tempfile.TemporaryDirectory(prefix="hydroqc-public-fixtures-") as temporary:
+        staging_root = Path(temporary)
+        public_folder = staging_root / "public"
+        public_folder.mkdir()
+        for sequence, response in enumerate(responses, start=1):
+            content_type = next(
+                (
+                    value
+                    for name, value in response.metadata.get("headers", [])
+                    if name.casefold() == "content-type"
+                ),
+                "",
+            )
+            extension = (
+                "json"
+                if "json" in content_type.casefold()
+                else "txt" if content_type.casefold().startswith("text/") else "bin"
+            )
+            stem = f"{sequence:04}"
+            body_file = f"{stem}-response.{extension}"
+            (public_folder / body_file).write_bytes(response.body)
+            metadata = {
+                "profile": "public",
+                "sequence": sequence,
+                "request_method": str(response.metadata["request_method"]).lower(),
+                "request_path": response.path,
+                "status": response.metadata["status"],
+                "headers": _safe_headers(response.metadata),
+                "body_file": body_file,
+            }
+            (public_folder / f"{stem}-metadata.json").write_text(
+                json.dumps(metadata, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+
+        scenario = {
+            "fixture_name": fixture_name,
+            "reference_date": reference_date,
+            "winter_period": winter_period,
+            "clients": [
+                {"rate": "DPC", "option": ""},
+                {"rate": "D", "option": "CPC"},
+            ],
+        }
+        (staging_root / "scenario.json").write_text(
+            json.dumps(scenario, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        _audit_staging_tree(staging_root)
+        scenario_name = (
+            "PUBLIC_PEAKS_WINTER" if winter_period else "PUBLIC_PEAKS_SUMMER"
+        )
+        destination = fixture_root / scenario_name / fixture_name
+        _install_fixture_bundle(
+            staging_root,
+            destination,
+            replace_existing=replace_existing,
+        )
+
+    return destination

@@ -17,6 +17,7 @@ from typing import Any
 from hydroqc import contract as contract_module
 from hydroqc.capture_fixtures import (
     anonymize_capture_to_fixtures,
+    install_public_capture_to_fixtures,
     validate_fixture_name,
 )
 from hydroqc.consts import LoginStatus
@@ -24,6 +25,7 @@ from hydroqc.contract.common import Contract
 from hydroqc.error import HydroQcError
 from hydroqc.hydro_api.client import HydroClient
 from hydroqc.hydro_api.consts import AUTH_CLIENT_MOBILE, AUTH_CLIENT_WEB
+from hydroqc.public_client import PublicClient
 from hydroqc.types.contract import ContractTyping
 from hydroqc.utils import EST_TIMEZONE
 
@@ -670,6 +672,69 @@ async def run_capture(
     prompt_session_cleanup(username)
 
 
+async def run_public_capture(
+    *,
+    keep_raw: bool = False,
+    winter_period: bool = False,
+    fixture_name: str | None = None,
+    replace_fixture: bool = False,
+) -> None:
+    """Capture public peak data and install replay fixtures without login."""
+    fixture_root = Path(__file__).parents[1] / "tests" / "fixtures"
+    fixture_name, replace_fixture = prompt_fixture_set(
+        fixture_root,
+        "PUBLIC_PEAKS_WINTER" if winter_period else "PUBLIC_PEAKS_SUMMER",
+        fixture_name,
+        replace_fixture=replace_fixture,
+    )
+    capture_dir = Path(tempfile.mkdtemp(prefix="hydroqc-public-capture-"))
+    client = PublicClient(
+        rate_code="DPC",
+        log_level="ERROR",
+        http_log_level="ERROR",
+    )
+    try:
+        writer = ResponseCaptureWriter(capture_dir / "public", "public")
+        client._hydro_client.response_capture_callback = (  # pylint: disable=protected-access
+            writer.capture
+        )
+        try:
+            portal_status = await client.check_hq_portal_status()
+            await client.fetch_peak_data()
+        finally:
+            client._hydro_client.response_capture_callback = (
+                None  # pylint: disable=protected-access
+            )
+            await client.close_session()
+
+        reference_date = datetime.now(EST_TIMEZONE).date().isoformat()
+        fixture_path = install_public_capture_to_fixtures(
+            capture_dir,
+            fixture_root,
+            reference_date,
+            fixture_name=fixture_name,
+            winter_period=winter_period,
+            replace_existing=replace_fixture,
+        )
+        print(
+            "Données publiques capturées via PublicClient "
+            f"(portail disponible : {'oui' if portal_status else 'non'})."
+        )
+        print(
+            "Fixture publique installée dans : "
+            f"{fixture_path} (réutilisable pour DPC et D_CPC; "
+            f"période hivernale : {'oui' if winter_period else 'non'})."
+        )
+        if keep_raw:
+            print(f"Capture brute conservée dans : {capture_dir}")
+        else:
+            shutil.rmtree(capture_dir)
+            print("Capture brute supprimée après installation des fixtures.")
+    except BaseException:
+        print(f"Capture brute conservée pour diagnostic dans : {capture_dir}")
+        raise
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line options."""
     parser = argparse.ArgumentParser(description="Capture Hydro-Québec API data.")
@@ -682,6 +747,11 @@ def parse_args() -> argparse.Namespace:
         help="Contract number to capture (prompted after login when omitted).",
     )
     parser.add_argument(
+        "--public",
+        action="store_true",
+        help="Capture public portal and peak data without Hydro-Québec login.",
+    )
+    parser.add_argument(
         "--keep-raw",
         action="store_true",
         help="Keep the sensitive raw capture after fixture installation.",
@@ -690,7 +760,7 @@ def parse_args() -> argparse.Namespace:
         "--winter-period",
         action="store_true",
         help=(
-            "Mark this capture as a winter-period scenario and install it in "
+            "Mark the capture as a winter-period scenario and install it in "
             "a separate *_WINTER fixture directory."
         ),
     )
@@ -709,6 +779,28 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Restore or authenticate each profile and persist its session state."""
     args = parse_args()
+    if args.public:
+        if args.username is not None:
+            raise SystemExit("--public ne nécessite pas --username.")
+        if args.contract is not None:
+            raise SystemExit("--public ne peut pas être combiné avec --contract.")
+        if args.replace_fixture and args.fixture_name is None:
+            raise SystemExit("--replace-fixture nécessite --fixture-name.")
+        if args.fixture_name is not None:
+            try:
+                validate_fixture_name(args.fixture_name)
+            except ValueError as error:
+                raise SystemExit(str(error)) from error
+        asyncio.run(
+            run_public_capture(
+                keep_raw=args.keep_raw,
+                winter_period=args.winter_period,
+                fixture_name=args.fixture_name,
+                replace_fixture=args.replace_fixture,
+            )
+        )
+        return
+
     if not (
         username := (
             args.username
