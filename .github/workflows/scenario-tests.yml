@@ -1,4 +1,4 @@
-name: Fixture tests
+name: Scenario tests with coverage
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   fixture-tests:
-    name: Unit and scenario tests
+    name: Unit and scenario tests with coverage
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
