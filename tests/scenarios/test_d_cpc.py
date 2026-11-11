@@ -1,62 +1,19 @@
 """Replay the full D_CPC scenario through the real HydroClient methods."""
 
 import json
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
 from hydroqc.capture import run_contract_scenario
-from hydroqc.contract import common as contract_common
-from hydroqc.contract import contract_dpc
 from hydroqc.hydro_api.client import HydroClient
-from hydroqc.peak import basepeakhandler
-from hydroqc import utils
 from .fixture_replay import FixtureReplayTransport
+from .scenario_helpers import freeze_hydroqc_clock
 
 FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures" / "common"
 FIXTURE_D_CPC_ROOT = Path(__file__).parents[1] / "fixtures" / "D_CPC_SUMMER"
-
-
-def _freeze_hydroqc_clock(
-    monkeypatch: pytest.MonkeyPatch, reference_date: date
-) -> None:
-    """Freeze clock calls used by contracts and peak handlers to scenario date."""
-
-    class FrozenDate(date):
-        """Date subclass frozen at the scenario reference date."""
-
-        @classmethod
-        def today(cls) -> "FrozenDate":
-            return cls(reference_date.year, reference_date.month, reference_date.day)
-
-    class FrozenDateTime(datetime):
-        """Datetime subclass frozen at the scenario reference date."""
-
-        @classmethod
-        def now(cls, tz: Any = None) -> "FrozenDateTime":
-            value = cls.combine(FrozenDate.today(), time.min)
-            if tz is None:
-                return value
-            if hasattr(tz, "localize"):
-                return cast(FrozenDateTime, tz.localize(value))
-            return value.replace(tzinfo=tz)
-
-        @classmethod
-        def today(cls) -> "FrozenDateTime":
-            return cls.now()
-
-    datetime_module = SimpleNamespace(
-        date=FrozenDate,
-        datetime=FrozenDateTime,
-        timedelta=timedelta,
-    )
-    monkeypatch.setattr(contract_common, "datetime", FrozenDateTime)
-    monkeypatch.setattr(contract_dpc, "datetime", FrozenDateTime)
-    monkeypatch.setattr(basepeakhandler, "datetime", datetime_module)
-    monkeypatch.setattr(utils, "datetime", datetime_module)
 
 
 @pytest.mark.asyncio
@@ -72,7 +29,7 @@ async def test_full_d_cpc_scenario_replays(
         (FIXTURE_D_CPC_ROOT / "scenario.json").read_text(encoding="utf-8")
     )
     reference_date = date.fromisoformat(rate_scenario["reference_date"])
-    _freeze_hydroqc_clock(monkeypatch, reference_date)
+    freeze_hydroqc_clock(monkeypatch, reference_date)
     transport = FixtureReplayTransport(
         [FIXTURE_ROOT / profile, FIXTURE_D_CPC_ROOT / profile]
     )
