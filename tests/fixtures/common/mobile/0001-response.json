@@ -1,19 +1,7 @@
 [
   {
-    "indEcActif": true,
-    "indFavori": false,
-    "nickname": "Fixture",
-    "noPartenaireDemandeur": "FIXTURE-APPLICANT-001",
-    "noPartenaireTitulaire": "FIXTURE-CUSTOMER-001",
-    "nom1Demandeur": "Fixture Applicant",
-    "nom1Titulaire": "Fixture Holder",
-    "nom2Demandeur": "",
-    "nom2Titulaire": "",
-    "typeRelation": "FIXTURE"
-  },
-  {
     "actif": true,
-    "dateDebutRelation": "2016-04-19",
+    "dateDebutRelation": "2010-09-30",
     "dateFinRelation": "9999-12-31",
     "indEcActif": true,
     "indFavori": false,

@@ -1,7 +1,17 @@
 {
-  "comptesContrats": [],
+  "comptesContrats": [
+    {
+      "listeNoContrat": [
+        "FIXTURE-CONTRACT-001"
+      ],
+      "noCompteContrat": "FIXTURE-ACCOUNT-001",
+      "titulaire": "FIXTURE-CUSTOMER-002"
+    }
+  ],
   "listeComptesContrats": {
-    "listeCompteContrat": []
+    "listeCompteContrat": [
+      "FIXTURE-ACCOUNT-001"
+    ]
   },
   "nbComptesContrats": 1,
   "nbContrats": 1
