@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import Any
 
 from hydroqc import contract as contract_module
+from hydroqc.capture_fixtures import anonymize_capture_to_fixtures
 from hydroqc.consts import LoginStatus
 from hydroqc.contract.common import Contract
-from hydroqc.capture_fixtures import anonymize_capture_to_fixtures
 from hydroqc.error import HydroQcError
 from hydroqc.hydro_api.client import HydroClient
 from hydroqc.hydro_api.consts import AUTH_CLIENT_MOBILE, AUTH_CLIENT_WEB
@@ -223,6 +223,42 @@ async def _restore_session(client: HydroClient, profile: str, username: str) -> 
     )
 
 
+def purge_sessions(username: str) -> list[Path]:
+    """Delete the saved sessions (tokens and cookies) for both profiles."""
+    removed: list[Path] = []
+    for profile in (AUTH_CLIENT_WEB, AUTH_CLIENT_MOBILE):
+        session_path = _session_path(profile, username)
+        try:
+            session_path.unlink()
+        except FileNotFoundError:
+            continue
+        removed.append(session_path)
+    return removed
+
+
+def prompt_session_cleanup(username: str) -> None:
+    """Ask whether to keep or purge the sessions written during the capture."""
+    answer = (
+        input(  # pylint: disable=bad-builtin
+            "Conserver les sessions et cookies enregistrés pour les prochaines "
+            "captures ? [O/n] : "
+        )
+        .strip()
+        .casefold()
+    )
+    if answer in {"", "o", "oui", "y", "yes"}:
+        print(f"Sessions et cookies conservés dans {SESSION_DIR}.")
+        return
+
+    if removed := purge_sessions(username):
+        print(
+            "Sessions et cookies supprimés : "
+            + ", ".join(path.name for path in removed)
+        )
+    else:
+        print("Aucune session enregistrée à supprimer.")
+
+
 async def find_contract_context(
     client: HydroClient, contract_id: str
 ) -> tuple[str, str, str]:
@@ -336,6 +372,92 @@ def _method_arguments(method: Any, reference_date: date) -> dict[str, Any]:
     return arguments
 
 
+@dataclass(frozen=True)
+class CapturableContract:
+    """Contract that can be captured with the authenticated account."""
+
+    contract_id: str
+    rate: str
+    rate_option: str
+
+    @property
+    def label(self) -> str:
+        """Return the human-readable contract label."""
+        return f"Contrat {self.contract_id} - {self.rate}{self.rate_option}"
+
+
+async def list_available_contracts(client: HydroClient) -> list[CapturableContract]:
+    """Enumerate every contract reachable with an authenticated client."""
+    contracts: list[CapturableContract] = []
+    seen: set[str] = set()
+    customers: set[tuple[str, str]] = set()
+    for relation in await client.get_user_info():
+        applicant_id = relation["noPartenaireDemandeur"]
+        customer_id = relation["noPartenaireTitulaire"]
+        if (applicant_id, customer_id) in customers:
+            continue
+        customers.add((applicant_id, customer_id))
+
+        summary = await client.list_account_contract(applicant_id, customer_id)
+        for account in summary["comptesContrats"]:
+            for contract_id in account["listeNoContrat"]:
+                if (key := contract_id.lstrip("0") or "0") in seen:
+                    continue
+                seen.add(key)
+                contract_info = await client.get_contract_info(
+                    applicant_id,
+                    customer_id,
+                    account["noCompteContrat"],
+                    contract_id,
+                )
+                contracts.append(
+                    CapturableContract(
+                        contract_id=contract_id,
+                        rate=contract_info["tarifActuel"],
+                        rate_option=contract_info.get("optionTarifActuel") or "",
+                    )
+                )
+    return contracts
+
+
+async def prompt_contract_selection(client: HydroClient) -> str:
+    """Prompt for the contract to capture once the login has succeeded."""
+    if not (contracts := await list_available_contracts(client)):
+        raise RuntimeError(
+            "Aucun contrat accessible avec ce compte. Vérifiez que le compte "
+            "Hydro-Québec est lié à au moins un contrat."
+        )
+
+    print("Contrats accessibles :")
+    for index, contract in enumerate(contracts, start=1):
+        print(f"  {index}. {contract.label}")
+
+    selected: CapturableContract | None = None
+    while selected is None:
+        choice = input(  # pylint: disable=bad-builtin
+            f"Contrat à capturer [1-{len(contracts)}] : "
+        ).strip()
+        if not choice and len(contracts) == 1:
+            selected = contracts[0]
+            break
+        if choice.isdecimal() and 1 <= int(choice) <= len(contracts):
+            selected = contracts[int(choice) - 1]
+            break
+        selected = next(
+            (
+                contract
+                for contract in contracts
+                if _contract_ids_match(choice, contract.contract_id)
+            ),
+            None,
+        )
+        if selected is None:
+            print(f"Sélection invalide : {choice!r}. Réessayez.")
+
+    print(f"Contrat sélectionné : {selected.label}")
+    return selected.contract_id
+
+
 async def authenticate_clients(username: str) -> dict[str, HydroClient]:
     """Restore or authenticate and return the web and mobile clients."""
     clients: list[tuple[str, HydroClient]] = []
@@ -381,13 +503,20 @@ async def authenticate_clients(username: str) -> dict[str, HydroClient]:
 
 async def run_capture(
     username: str,
-    contract_id: str,
+    contract_id: str | None = None,
     *,
     keep_raw: bool = False,
     winter_period: bool = False,
 ) -> None:
-    """Capture, pseudonymize, and install fixture responses for both profiles."""
+    """Capture, pseudonymize, and install fixture responses for both profiles.
+
+    When ``contract_id`` is omitted, the available contracts are listed after
+    login and the user picks one interactively, like the Home Assistant config
+    flow does.
+    """
     clients = await authenticate_clients(username)
+    if contract_id is None:
+        contract_id = await prompt_contract_selection(next(iter(clients.values())))
     capture_dir = Path(tempfile.mkdtemp(prefix="hydroqc-capture-"))
     reference_date = datetime.now(EST_TIMEZONE).date()
     try:
@@ -437,6 +566,8 @@ async def run_capture(
         for client in clients.values():
             await client.close_session()
 
+    prompt_session_cleanup(username)
+
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line options."""
@@ -447,8 +578,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--contract",
-        required=True,
-        help="Contract number to look up with both authenticated profiles.",
+        help="Contract number to capture (prompted after login when omitted).",
     )
     parser.add_argument(
         "--keep-raw",
@@ -476,11 +606,13 @@ def main() -> None:
         ).strip()
     ):
         raise SystemExit("Le nom d’utilisateur ne peut pas être vide.")
-    if not (contract_id := args.contract.strip()):
+    if args.contract is not None and not args.contract.strip():
         raise SystemExit("Le numéro de contrat ne peut pas être vide.")
+    contract_id = args.contract.strip() if args.contract is not None else None
     print(
         "Les sessions seront conservées localement sans chiffrement dans "
-        f"{SESSION_DIR}. Elles contiennent des jetons et des cookies."
+        f"{SESSION_DIR}. Elles contiennent des jetons et des cookies. "
+        "Un choix de les conserver ou de les supprimer sera proposé à la fin."
     )
     asyncio.run(
         run_capture(

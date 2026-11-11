@@ -66,8 +66,12 @@ repository root:
 ```bash
 python -m venv .venv  # skip if the virtual environment already exists
 .venv/bin/python -m pip install -e . -r test_requirements.txt
-.venv/bin/hydroqc-capture --contract <contract-number>
+.venv/bin/hydroqc-capture
 ```
+
+The command prompts for the username and, when needed, the password and MFA
+code. Once logged in, it lists the contracts available on the account and asks
+which one to capture. Pass `--contract <contract-number>` to skip that prompt.
 
 For a contract captured during its winter period, add `--winter-period` so its
 fixtures are kept separately from non-winter data:
@@ -77,9 +81,10 @@ fixtures are kept separately from non-winter data:
 ```
 
 If the virtual environment is already active, use `hydroqc-capture` instead of
-`.venv/bin/hydroqc-capture`. The command prompts for the username and, when
-needed, the password and MFA code. It captures both the web and mobile API
-profiles and runs the contract operations discovered by the capture script.
+`.venv/bin/hydroqc-capture`. It captures both the web and mobile API profiles
+and runs the contract operations discovered by the capture script. At the end it
+asks whether to keep the saved sessions (tokens and cookies) for the next
+capture or to purge them.
 
 After a successful capture, the script pseudonymizes the responses and installs
 them automatically under `tests/fixtures/`:
