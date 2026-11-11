@@ -316,11 +316,11 @@ def _find_target_context(
     raise ValueError("Le contrat cible n’a pas été retrouvé dans la capture brute.")
 
 
-def _fixture_group(path: str, scenario_name: str) -> str:
-    """Split shared relation lookup data from contract-specific responses."""
+def _fixture_group(path: str) -> str:
+    """Split contract selection responses from contract-specific responses."""
     if path.endswith("/relations") or "calculerSommaireContractuel" in path:
         return "common"
-    return scenario_name
+    return "contract"
 
 
 def _find_target_contract_info(
@@ -420,6 +420,7 @@ def _write_fixture_set(
     contract_id: str,
     reference_date: str,
     *,
+    fixture_name: str,
     winter_period: bool,
 ) -> str:
     """Write sanitized replay responses and scenario metadata into a staging tree."""
@@ -428,7 +429,7 @@ def _write_fixture_set(
     scenario_name = _scenario_name(target_contract_info, winter_period)
 
     for response in responses:
-        group = _fixture_group(response.path, scenario_name)
+        group = _fixture_group(response.path)
         key = (group, response.profile)
         counters[key] = counters.get(key, 0) + 1
         sequence = counters[key]
@@ -461,17 +462,14 @@ def _write_fixture_set(
         ],
     }
     rate_scenario = {
+        "fixture_name": fixture_name,
+        **common_scenario,
         "rate": target_contract_info["tarifActuel"],
         "option": target_contract_info.get("optionTarifActuel") or "",
         "reference_date": reference_date,
         "winter_period": winter_period,
     }
-    (staging_root / "common").mkdir(parents=True, exist_ok=True)
-    (staging_root / scenario_name).mkdir(parents=True, exist_ok=True)
-    (staging_root / "common" / "scenario.json").write_text(
-        json.dumps(common_scenario, indent=2) + "\n", encoding="utf-8"
-    )
-    (staging_root / scenario_name / "scenario.json").write_text(
+    (staging_root / "scenario.json").write_text(
         json.dumps(rate_scenario, indent=2) + "\n", encoding="utf-8"
     )
     return scenario_name
@@ -494,21 +492,53 @@ def _audit_staging_tree(staging_root: Path) -> None:
             raise ValueError(f"Audit d’anonymisation échoué dans {path.name}.")
 
 
-def _replace_fixture_responses(source: Path, destination: Path) -> None:
-    """Replace only generated response pairs, preserving unrelated fixture files."""
-    destination.mkdir(parents=True, exist_ok=True)
-    for metadata_path in destination.glob("*-metadata.json"):
+def validate_fixture_name(fixture_name: str) -> str:
+    """Validate a neutral fixture-set name safe for use as a directory."""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", fixture_name):
+        raise ValueError(
+            "Le nom du jeu de fixtures doit commencer par une lettre ou un chiffre "
+            "et ne contenir que des lettres, chiffres, tirets ou tirets bas (64 "
+            "caractères maximum)."
+        )
+    return fixture_name
+
+
+def _install_fixture_bundle(
+    source: Path,
+    destination: Path,
+    *,
+    replace_existing: bool,
+) -> None:
+    """Atomically install a complete fixture set, only replacing by request."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    exists = destination.exists()
+    if exists and not replace_existing:
+        raise FileExistsError(
+            f"Le jeu de fixtures existe déjà : {destination}. "
+            "Choisissez un autre nom ou confirmez explicitement son remplacement."
+        )
+    if replace_existing and not exists:
+        raise FileNotFoundError(
+            f"Impossible de remplacer le jeu de fixtures absent : {destination}."
+        )
+    if exists and not destination.is_dir():
+        raise NotADirectoryError(destination)
+
+    with tempfile.TemporaryDirectory(
+        prefix=".hydroqc-fixture-", dir=destination.parent
+    ) as temporary:
+        temporary_root = Path(temporary)
+        staged_bundle = temporary_root / "new"
+        shutil.copytree(source, staged_bundle)
+        backup = temporary_root / "previous"
+        if exists:
+            destination.rename(backup)
         try:
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            body_file = metadata.get("body_file")
-        except (OSError, json.JSONDecodeError):
-            body_file = None
-        if isinstance(body_file, str):
-            (destination / body_file).unlink(missing_ok=True)
-        metadata_path.unlink()
-    for path in source.iterdir():
-        if path.is_file():
-            shutil.copy2(path, destination / path.name)
+            staged_bundle.rename(destination)
+        except BaseException:
+            if backup.exists() and not destination.exists():
+                backup.rename(destination)
+            raise
 
 
 def anonymize_capture_to_fixtures(
@@ -518,11 +548,14 @@ def anonymize_capture_to_fixtures(
     reference_date: str,
     *,
     winter_period: bool = False,
+    fixture_name: str,
+    replace_existing: bool = False,
 ) -> str:
     """Pseudonymize a capture and install its web/mobile replay fixtures."""
     responses = _load_responses(capture_root)
     target_context, matched_contract_id = _find_target_context(responses, contract_id)
     pseudonymizer = CapturePseudonymizer(matched_contract_id, target_context)
+    fixture_name = validate_fixture_name(fixture_name)
 
     with tempfile.TemporaryDirectory(prefix="hydroqc-fixtures-") as temporary:
         staging_root = Path(temporary)
@@ -532,20 +565,14 @@ def anonymize_capture_to_fixtures(
             pseudonymizer,
             contract_id,
             reference_date,
+            fixture_name=fixture_name,
             winter_period=winter_period,
         )
         _audit_staging_tree(staging_root)
-
-        for group in ("common", scenario_name):
-            group_source = staging_root / group
-            group_destination = fixture_root / group
-            for profile in ("web", "mobile"):
-                _replace_fixture_responses(
-                    group_source / profile,
-                    group_destination / profile,
-                )
-            shutil.copy2(
-                group_source / "scenario.json",
-                group_destination / "scenario.json",
-            )
+        destination = fixture_root / scenario_name / fixture_name
+        _install_fixture_bundle(
+            staging_root,
+            destination,
+            replace_existing=replace_existing,
+        )
     return scenario_name

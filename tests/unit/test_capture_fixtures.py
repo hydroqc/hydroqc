@@ -144,30 +144,26 @@ def test_capture_installs_safe_fixtures(tmp_path: Path) -> None:
         "contract-real",
         fixture_root,
         "2026-11-10",
+        fixture_name="capture-01",
     )
 
-    common_scenario = json.loads(
-        (fixture_root / "common" / "scenario.json").read_text(encoding="utf-8")
-    )
-    assert common_scenario == {
+    fixture_path = fixture_root / "D_CPC_SUMMER" / "capture-01"
+    scenario = json.loads((fixture_path / "scenario.json").read_text(encoding="utf-8"))
+    assert scenario == {
+        "fixture_name": "capture-01",
         "contract_id": "FIXTURE-CONTRACT-001",
         "context": [
             "FIXTURE-APPLICANT-001",
             "FIXTURE-CUSTOMER-002",
             "FIXTURE-ACCOUNT-001",
         ],
-    }
-    rate_scenario = json.loads(
-        (fixture_root / "D_CPC_SUMMER" / "scenario.json").read_text(encoding="utf-8")
-    )
-    assert rate_scenario == {
         "rate": "D",
         "option": "CPC",
         "reference_date": "2026-11-10",
         "winter_period": False,
     }
 
-    response_path = fixture_root / "D_CPC_SUMMER" / "web" / "0001-response.json"
+    response_path = fixture_path / "contract" / "web" / "0001-response.json"
     contract_response = json.loads(response_path.read_text(encoding="utf-8"))
     contract = contract_response["listeContrats"][0]
     assert contract["noContrat"] == "FIXTURE-CONTRACT-001"
@@ -181,7 +177,7 @@ def test_capture_installs_safe_fixtures(tmp_path: Path) -> None:
     assert contract["montantFacturePeriode"] == 0.01
 
     metadata = json.loads(
-        (fixture_root / "common" / "web" / "0001-metadata.json").read_text(
+        (fixture_path / "common" / "web" / "0001-metadata.json").read_text(
             encoding="utf-8"
         )
     )
@@ -194,6 +190,38 @@ def test_capture_installs_safe_fixtures(tmp_path: Path) -> None:
     assert b"secret-refresh" not in all_fixture_bytes
     assert b"Real Applicant" not in all_fixture_bytes
     assert b"real@example.com" not in all_fixture_bytes
+
+    with pytest.raises(FileExistsError, match="existe déjà"):
+        anonymize_capture_to_fixtures(
+            capture_root,
+            "contract-real",
+            fixture_root,
+            "2026-11-10",
+            fixture_name="capture-01",
+        )
+    fixture_path = fixture_root / "D_CPC_SUMMER" / "capture-01"
+    sentinel_path = fixture_path / "sentinel"
+    sentinel_path.write_text("old fixture", encoding="utf-8")
+
+    anonymize_capture_to_fixtures(
+        capture_root,
+        "contract-real",
+        fixture_root,
+        "2026-11-10",
+        replace_existing=True,
+        fixture_name="capture-01",
+    )
+    assert not sentinel_path.exists()
+
+    anonymize_capture_to_fixtures(
+        capture_root,
+        "contract-real",
+        fixture_root,
+        "2026-11-10",
+        fixture_name="capture-02",
+    )
+    assert (fixture_path / "common").is_dir()
+    assert (fixture_root / "D_CPC_SUMMER" / "capture-02" / "common").is_dir()
 
 
 def test_capture_uses_rate_only_name(tmp_path: Path) -> None:
@@ -208,16 +236,19 @@ def test_capture_uses_rate_only_name(tmp_path: Path) -> None:
         "contract-real",
         fixture_root,
         "2026-11-10",
+        fixture_name="case-01",
     )
 
     assert scenario_name == "DT_SUMMER"
     scenario = json.loads(
-        (fixture_root / "DT_SUMMER" / "scenario.json").read_text(encoding="utf-8")
+        (fixture_root / "DT_SUMMER" / "case-01" / "scenario.json").read_text(
+            encoding="utf-8"
+        )
     )
     assert scenario["rate"] == "DT"
     assert scenario["option"] == ""
-    assert (fixture_root / "DT_SUMMER" / "web").is_dir()
-    assert (fixture_root / "DT_SUMMER" / "mobile").is_dir()
+    assert (fixture_root / "DT_SUMMER" / "case-01" / "common" / "web").is_dir()
+    assert (fixture_root / "DT_SUMMER" / "case-01" / "contract" / "mobile").is_dir()
     assert not (fixture_root / "D_CPC_SUMMER").exists()
 
 
@@ -234,20 +265,32 @@ def test_capture_marks_winter_scenario(tmp_path: Path) -> None:
         fixture_root,
         "2026-11-10",
         winter_period=True,
+        fixture_name="winter-case",
     )
 
     assert scenario_name == "D_CPC_WINTER"
     scenario = json.loads(
-        (fixture_root / scenario_name / "scenario.json").read_text(encoding="utf-8")
+        (fixture_root / scenario_name / "winter-case" / "scenario.json").read_text(
+            encoding="utf-8"
+        )
     )
     assert scenario == {
+        "fixture_name": "winter-case",
+        "contract_id": "FIXTURE-CONTRACT-001",
+        "context": [
+            "FIXTURE-APPLICANT-001",
+            "FIXTURE-CUSTOMER-002",
+            "FIXTURE-ACCOUNT-001",
+        ],
         "rate": "D",
         "option": "CPC",
         "reference_date": "2026-11-10",
         "winter_period": True,
     }
-    assert (fixture_root / scenario_name / "web").is_dir()
-    assert (fixture_root / scenario_name / "mobile").is_dir()
+    assert (fixture_root / scenario_name / "winter-case" / "common" / "web").is_dir()
+    assert (
+        fixture_root / scenario_name / "winter-case" / "contract" / "mobile"
+    ).is_dir()
     assert not (fixture_root / "D_CPC_SUMMER").exists()
 
 
@@ -263,6 +306,7 @@ def test_winter_rate_only_name(tmp_path: Path) -> None:
         tmp_path / "fixtures",
         "2026-11-10",
         winter_period=True,
+        fixture_name="case-01",
     )
 
     assert scenario_name == "DT_WINTER"
@@ -286,6 +330,7 @@ def test_winter_scenarios_support_other_rates(
         tmp_path / "fixtures",
         "2026-11-10",
         winter_period=True,
+        fixture_name="case-01",
     )
 
     assert scenario_name == expected_name

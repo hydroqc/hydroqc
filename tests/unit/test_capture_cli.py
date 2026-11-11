@@ -12,6 +12,7 @@ from hydroqc.capture import (
     list_available_contracts,
     parse_args,
     prompt_contract_selection,
+    prompt_fixture_set,
     prompt_session_cleanup,
     purge_sessions,
 )
@@ -87,6 +88,69 @@ def test_contract_is_optional(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["hydroqc-capture"])
 
     assert parse_args().contract is None
+
+
+def test_fixture_name_options_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Accept an explicit fixture-set name and replacement confirmation."""
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "hydroqc-capture",
+            "--fixture-name",
+            "fixture-02",
+            "--replace-fixture",
+        ],
+    )
+
+    args = parse_args()
+
+    assert args.fixture_name == "fixture-02"
+    assert args.replace_fixture is True
+
+
+def test_prompt_fixture_set_creates_new_name(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Ask for a neutral fixture name when no set exists yet."""
+    _patch_inputs(monkeypatch, "case-01")
+
+    assert prompt_fixture_set(tmp_path, "DPC_SUMMER") == ("case-01", False)
+
+
+def test_prompt_fixture_replacement(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Require a confirmation before replacing a selected fixture set."""
+    (tmp_path / "DPC_SUMMER" / "case-01").mkdir(parents=True)
+    _patch_inputs(monkeypatch, "1", "o")
+
+    assert prompt_fixture_set(tmp_path, "DPC_SUMMER") == ("case-01", True)
+
+
+def test_prompt_fixture_new_set(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Preserve existing fixture sets when creating another case."""
+    (tmp_path / "DPC_SUMMER" / "case-01").mkdir(parents=True)
+    _patch_inputs(monkeypatch, "n", "case-02")
+
+    assert prompt_fixture_set(tmp_path, "DPC_SUMMER") == ("case-02", False)
+
+
+def test_cli_replace_requires_existing(tmp_path: Path) -> None:
+    """Refuse an implicit overwrite when a fixture name already exists."""
+    (tmp_path / "DPC_SUMMER" / "case-01").mkdir(parents=True)
+
+    with pytest.raises(FileExistsError, match="--replace-fixture"):
+        prompt_fixture_set(tmp_path, "DPC_SUMMER", "case-01")
+
+    assert prompt_fixture_set(
+        tmp_path,
+        "DPC_SUMMER",
+        "case-01",
+        replace_fixture=True,
+    ) == ("case-01", True)
 
 
 @pytest.mark.asyncio(loop_scope="module")

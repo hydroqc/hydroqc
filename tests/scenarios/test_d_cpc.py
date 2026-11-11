@@ -12,26 +12,36 @@ from hydroqc.hydro_api.client import HydroClient
 from .fixture_replay import FixtureReplayTransport
 from .scenario_helpers import freeze_hydroqc_clock
 
-FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures" / "common"
-FIXTURE_D_CPC_ROOT = Path(__file__).parents[1] / "fixtures" / "D_CPC_SUMMER"
+FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures"
+D_CPC_FIXTURE_SETS = sorted(
+    fixture_set
+    for scenario_folder in FIXTURE_ROOT.glob("D_CPC_*")
+    for fixture_set in scenario_folder.iterdir()
+    if fixture_set.is_dir() and (fixture_set / "scenario.json").is_file()
+)
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", ["web", "mobile"])
+@pytest.mark.parametrize(
+    "fixture_root",
+    D_CPC_FIXTURE_SETS,
+    ids=lambda path: f"{path.parent.name}-{path.name}",
+)
 async def test_full_d_cpc_scenario_replays(
-    profile: str, monkeypatch: pytest.MonkeyPatch
+    profile: str, fixture_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Replay contract selection and all captured D_CPC operations."""
-    common_scenario: dict[str, Any] = json.loads(
-        (FIXTURE_ROOT / "scenario.json").read_text(encoding="utf-8")
-    )
     rate_scenario: dict[str, Any] = json.loads(
-        (FIXTURE_D_CPC_ROOT / "scenario.json").read_text(encoding="utf-8")
+        (fixture_root / "scenario.json").read_text(encoding="utf-8")
     )
     reference_date = date.fromisoformat(rate_scenario["reference_date"])
     freeze_hydroqc_clock(monkeypatch, reference_date)
     transport = FixtureReplayTransport(
-        [FIXTURE_ROOT / profile, FIXTURE_D_CPC_ROOT / profile]
+        [
+            fixture_root / "common" / profile,
+            fixture_root / "contract" / profile,
+        ]
     )
     client = HydroClient(
         "fixture@example.invalid",
@@ -49,11 +59,11 @@ async def test_full_d_cpc_scenario_replays(
     try:
         client.http_request = transport.request  # type: ignore[assignment]
         scenario = await run_contract_scenario(
-            client, common_scenario["contract_id"], reference_date
+            client, rate_scenario["contract_id"], reference_date
         )
         transport.assert_complete()
 
-        assert scenario.context == tuple(common_scenario["context"])
+        assert scenario.context == tuple(rate_scenario["context"])
         assert scenario.contract.rate == rate_scenario["rate"]
         assert scenario.contract.rate_option == rate_scenario["option"]
         assert scenario.surface["methods"]

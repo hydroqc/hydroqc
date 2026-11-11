@@ -1,0 +1,13 @@
+{
+  "fixture_name": "capture-01",
+  "contract_id": "FIXTURE-CONTRACT-001",
+  "context": [
+    "FIXTURE-APPLICANT-001",
+    "FIXTURE-CUSTOMER-002",
+    "FIXTURE-ACCOUNT-001"
+  ],
+  "rate": "D",
+  "option": "CPC",
+  "reference_date": "2026-11-10",
+  "winter_period": false
+}

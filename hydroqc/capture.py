@@ -15,7 +15,10 @@ from pathlib import Path
 from typing import Any
 
 from hydroqc import contract as contract_module
-from hydroqc.capture_fixtures import anonymize_capture_to_fixtures
+from hydroqc.capture_fixtures import (
+    anonymize_capture_to_fixtures,
+    validate_fixture_name,
+)
 from hydroqc.consts import LoginStatus
 from hydroqc.contract.common import Contract
 from hydroqc.error import HydroQcError
@@ -257,6 +260,88 @@ def prompt_session_cleanup(username: str) -> None:
         )
     else:
         print("Aucune session enregistrée à supprimer.")
+
+
+def prompt_fixture_set(
+    fixture_root: Path,
+    scenario_name: str,
+    fixture_name: str | None = None,
+    *,
+    replace_fixture: bool = False,
+) -> tuple[str, bool]:
+    """Choose a fixture-set name and require an explicit replacement choice."""
+    if replace_fixture and fixture_name is None:
+        raise ValueError("--replace-fixture nécessite --fixture-name.")
+
+    scenario_root = fixture_root / scenario_name
+    existing_names = (
+        sorted(
+            path.name
+            for path in scenario_root.iterdir()
+            if path.is_dir() and not path.name.startswith(".")
+        )
+        if scenario_root.is_dir()
+        else []
+    )
+
+    if fixture_name is not None:
+        fixture_name = validate_fixture_name(fixture_name)
+        exists = (
+            fixture_name in existing_names or (scenario_root / fixture_name).exists()
+        )
+        if exists and not replace_fixture:
+            raise FileExistsError(
+                f"Le jeu {scenario_name}/{fixture_name} existe déjà. "
+                "Utilisez --replace-fixture pour confirmer son remplacement, "
+                "ou choisissez un autre --fixture-name."
+            )
+        if replace_fixture and not exists:
+            raise FileNotFoundError(
+                f"Le jeu {scenario_name}/{fixture_name} à remplacer n’existe pas."
+            )
+        return fixture_name, replace_fixture
+
+    if existing_names:
+        print(f"Jeux de fixtures déjà présents pour {scenario_name} :")
+        for index, name in enumerate(existing_names, start=1):
+            print(f"  {index}. Remplacer {name}")
+        print("  n. Créer un nouveau jeu")
+        while True:
+            choice_input = input("Votre choix : ")  # pylint: disable=bad-builtin
+            if (choice := choice_input.strip().casefold()) in {
+                "n",
+                "nouveau",
+                "new",
+            }:
+                break
+            if choice.isdecimal() and 1 <= int(choice) <= len(existing_names):
+                selected_name = existing_names[int(choice) - 1]
+                confirmation = (
+                    input(  # pylint: disable=bad-builtin
+                        f"Remplacer entièrement {scenario_name}/{selected_name} ? [o/N] : "
+                    )
+                    .strip()
+                    .casefold()
+                )
+                if confirmation in {"o", "oui", "y", "yes"}:
+                    return selected_name, True
+                print("Remplacement annulé.")
+                continue
+            print("Choix invalide; sélectionnez un numéro ou « n ».")
+
+    while True:
+        entered_name = input(  # pylint: disable=bad-builtin
+            "Nom neutre du nouveau jeu de fixtures (ex. jeu-02) : "
+        ).strip()
+        try:
+            entered_name = validate_fixture_name(entered_name)
+        except ValueError as error:
+            print(error)
+            continue
+        if entered_name in existing_names or (scenario_root / entered_name).exists():
+            print("Ce nom existe déjà; choisissez un autre nom ou sélectionnez-le.")
+            continue
+        return entered_name, False
 
 
 async def find_contract_context(
@@ -507,6 +592,8 @@ async def run_capture(
     *,
     keep_raw: bool = False,
     winter_period: bool = False,
+    fixture_name: str | None = None,
+    replace_fixture: bool = False,
 ) -> None:
     """Capture, pseudonymize, and install fixture responses for both profiles.
 
@@ -539,16 +626,30 @@ async def run_capture(
             )
 
         fixture_root = Path(__file__).parents[1] / "tests" / "fixtures"
+        fixture_type = (
+            f"{scenario.contract.rate}_{scenario.contract.rate_option}"
+            if scenario.contract.rate_option
+            else scenario.contract.rate
+        )
+        fixture_scenario = f"{fixture_type}_{'WINTER' if winter_period else 'SUMMER'}"
+        fixture_name, replace_fixture = prompt_fixture_set(
+            fixture_root,
+            fixture_scenario,
+            fixture_name,
+            replace_fixture=replace_fixture,
+        )
         fixture_type = anonymize_capture_to_fixtures(
             capture_dir,
             contract_id,
             fixture_root,
             reference_date.isoformat(),
             winter_period=winter_period,
+            fixture_name=fixture_name,
+            replace_existing=replace_fixture,
         )
         print(
             "Réponses pseudonymisées copiées dans "
-            f"{fixture_root / 'common'} et {fixture_root / fixture_type} "
+            f"{fixture_root / fixture_type / fixture_name} "
             f"(mesures et dates conservées; date de référence {reference_date}"
             f"; période hivernale : {'oui' if winter_period else 'non'})."
         )
@@ -593,6 +694,15 @@ def parse_args() -> argparse.Namespace:
             "a separate *_WINTER fixture directory."
         ),
     )
+    parser.add_argument(
+        "--fixture-name",
+        help="Nom neutre du jeu de fixtures (sans donnée personnelle).",
+    )
+    parser.add_argument(
+        "--replace-fixture",
+        action="store_true",
+        help="Confirmer le remplacement du jeu indiqué avec --fixture-name.",
+    )
     return parser.parse_args()
 
 
@@ -608,6 +718,13 @@ def main() -> None:
         raise SystemExit("Le nom d’utilisateur ne peut pas être vide.")
     if args.contract is not None and not args.contract.strip():
         raise SystemExit("Le numéro de contrat ne peut pas être vide.")
+    if args.replace_fixture and args.fixture_name is None:
+        raise SystemExit("--replace-fixture nécessite --fixture-name.")
+    if args.fixture_name is not None:
+        try:
+            validate_fixture_name(args.fixture_name)
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
     contract_id = args.contract.strip() if args.contract is not None else None
     print(
         "Les sessions seront conservées localement sans chiffrement dans "
@@ -620,5 +737,7 @@ def main() -> None:
             contract_id,
             keep_raw=args.keep_raw,
             winter_period=args.winter_period,
+            fixture_name=args.fixture_name,
+            replace_fixture=args.replace_fixture,
         )
     )

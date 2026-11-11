@@ -13,8 +13,13 @@ from hydroqc.hydro_api.client import HydroClient
 from .fixture_replay import FixtureReplayTransport
 from .scenario_helpers import freeze_hydroqc_clock
 
-FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures" / "common"
-FIXTURE_DPC_ROOT = Path(__file__).parents[1] / "fixtures" / "DPC_SUMMER"
+FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures"
+DPC_FIXTURE_SETS = sorted(
+    fixture_set
+    for scenario_folder in FIXTURE_ROOT.glob("DPC_*")
+    for fixture_set in scenario_folder.iterdir()
+    if fixture_set.is_dir() and (fixture_set / "scenario.json").is_file()
+)
 DPC_PROPERTIES = {
     "amount_saved_vs_base_rate",
     "critical_called_hours",
@@ -28,20 +33,22 @@ DPC_PROPERTIES = {
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", ["web", "mobile"])
+@pytest.mark.parametrize(
+    "fixture_root",
+    DPC_FIXTURE_SETS,
+    ids=lambda path: f"{path.parent.name}-{path.name}",
+)
 async def test_full_dpc_scenario_replays(
-    profile: str, monkeypatch: pytest.MonkeyPatch
+    profile: str, fixture_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Replay contract selection and all captured DPC operations."""
-    common_scenario: dict[str, Any] = json.loads(
-        (FIXTURE_ROOT / "scenario.json").read_text(encoding="utf-8")
-    )
     rate_scenario: dict[str, Any] = json.loads(
-        (FIXTURE_DPC_ROOT / "scenario.json").read_text(encoding="utf-8")
+        (fixture_root / "scenario.json").read_text(encoding="utf-8")
     )
     dpc_data_path = next(
         metadata_path
         for metadata_path in sorted(
-            (FIXTURE_DPC_ROOT / profile).glob("*-metadata.json")
+            (fixture_root / "contract" / profile).glob("*-metadata.json")
         )
         if json.loads(metadata_path.read_text(encoding="utf-8"))[
             "request_path"
@@ -55,7 +62,10 @@ async def test_full_dpc_scenario_replays(
     reference_date = date.fromisoformat(rate_scenario["reference_date"])
     freeze_hydroqc_clock(monkeypatch, reference_date)
     transport = FixtureReplayTransport(
-        [FIXTURE_ROOT / profile, FIXTURE_DPC_ROOT / profile]
+        [
+            fixture_root / "common" / profile,
+            fixture_root / "contract" / profile,
+        ]
     )
     client = HydroClient(
         "fixture@example.invalid",
@@ -73,11 +83,11 @@ async def test_full_dpc_scenario_replays(
     try:
         client.http_request = transport.request  # type: ignore[assignment]
         scenario = await run_contract_scenario(
-            client, common_scenario["contract_id"], reference_date
+            client, rate_scenario["contract_id"], reference_date
         )
         transport.assert_complete()
 
-        assert scenario.context == tuple(common_scenario["context"])
+        assert scenario.context == tuple(rate_scenario["context"])
         assert isinstance(scenario.contract, ContractDPC)
         assert scenario.contract.rate == rate_scenario["rate"]
         assert scenario.contract.rate_option == rate_scenario["option"]

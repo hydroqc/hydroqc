@@ -91,24 +91,39 @@ them automatically under `tests/fixtures/`:
 
 ```text
 tests/fixtures/
-  common/                 # contract-selection responses shared by scenarios
-    scenario.json
-    web/
-    mobile/
-  D_CPC_SUMMER/            # non-winter capture of a rate and option
-  DT_SUMMER/               # non-winter capture of a rate without an option
-  D_CPC_WINTER/            # winter capture of a rate with an option
-  G_WINTER/                # winter capture of a rate without an option
-  M_GDP_WINTER/            # winter capture of another rate option
+  DPC_SUMMER/
+    capture-01/
+      scenario.json
+      common/               # this capture's contract-selection responses
+        web/
+        mobile/
+      contract/             # this capture's rate-specific responses
+        web/
+        mobile/
+  D_CPC_SUMMER/
+    capture-01/
+      ...
 ```
 
-The scenario directory is named from the captured rate and option, joined by
-an underscore when an option exists, then suffixed with `_SUMMER` or `_WINTER`
-(for example, `D_CPC_SUMMER` or `M_GDP_WINTER`). A capture for an existing
-scenario replaces that scenario's recorded responses;
-the shared `common` responses are also refreshed. Review the fixture diff to
-make sure it contains the expected profile and scenario before committing it.
-The `--winter-period` flag selects the `_WINTER` suffix and records
+The outer directory is named from the captured rate and option, joined by an
+underscore when an option exists, then suffixed with `_SUMMER` or `_WINTER`
+(for example, `D_CPC_SUMMER` or `M_GDP_WINTER`). Each capture has its own
+neutral fixture-set name, such as `capture-01`; its `common` selection responses
+stay with that set instead of being shared or overwritten by another capture.
+After capturing, the command lists existing sets and lets you replace one (with
+a separate confirmation) or create a new one. New names must be neutral and
+must not contain personal or contract-identifying information.
+
+The same choice can be made explicitly on the command line. Give a new name to
+add a separate set, or add `--replace-fixture` to replace that named set:
+
+```bash
+.venv/bin/hydroqc-capture --fixture-name capture-02
+.venv/bin/hydroqc-capture --fixture-name capture-01 --replace-fixture
+```
+
+An existing set is never replaced implicitly. The `--winter-period` flag selects
+the `_WINTER` suffix and records
 `"winter_period": true` in its `scenario.json`; without the flag, the scenario
 gets a `_SUMMER` suffix and the field is `false`. This works with any rate and
 option, including G and M: for example, `G_SUMMER` / `G_WINTER` or
@@ -126,12 +141,11 @@ for local diagnosis; remove them securely when finished.
 
 Add one full scenario test for each contract type in `tests/scenarios/`, using
 `tests/scenarios/test_d_cpc.py` as the template. Parameterize the test over
-`web` and `mobile`, load the shared `common` fixtures followed by that
-contract's fixtures, and replay the complete scenario through
+`web` and `mobile`, load the selected fixture set's `common` responses followed
+by its `contract` responses, and replay the complete scenario through
 `run_contract_scenario`. Assert the expected rate and option, and assert that
-the replay transport consumed every recorded response. The common selection
-fixtures are inputs to each full scenario; they are not a separate scenario
-test.
+the replay transport consumed every recorded response. If a contract type has
+multiple fixture sets, the scenario test discovers and replays each set.
 
 Run the new scenario without network access, then run all safe local tests:
 
