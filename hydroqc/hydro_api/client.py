@@ -98,9 +98,7 @@ from hydroqc.types import (
 )
 from hydroqc.utils import EST_TIMEZONE
 
-ResponseCaptureCallback = Callable[
-    [str, str, aiohttp.ClientResponse, bytes], None
-]
+ResponseCaptureCallback = Callable[[str, str, aiohttp.ClientResponse, bytes], None]
 
 # Host serving the Azure AD B2C pages. Its cookies hold the login transaction
 # and the single sign-on state: they are the ones worth persisting to skip a

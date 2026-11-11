@@ -5,11 +5,14 @@ import json
 import re
 import shutil
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlsplit
+
+from hydroqc.types.contract import ContractTyping, ListContractsTyping
 
 
 @dataclass
@@ -115,12 +118,14 @@ class CapturePseudonymizer:
     }
 
     def __init__(self, contract_id: str, target_context: tuple[str, str, str]):
+        """Initialize pseudonymization maps for the selected contract context."""
         self.contract_id = contract_id
         self.target_context = target_context
         self.id_maps: dict[str, dict[str, str]] = {role: {} for role in self._PREFIXES}
         self._seed_target_ids()
 
     def _seed_target_ids(self) -> None:
+        """Assign stable fixture identifiers to the target account context."""
         applicant_id, customer_id, account_id = self.target_context
         self.id_maps["applicant"][applicant_id] = "FIXTURE-APPLICANT-001"
         self.id_maps["customer"][customer_id] = "FIXTURE-CUSTOMER-002"
@@ -128,6 +133,7 @@ class CapturePseudonymizer:
         self.id_maps["contract"][self.contract_id] = "FIXTURE-CONTRACT-001"
 
     def _mapped_id(self, role: str, value: Any) -> str:
+        """Return the deterministic pseudonym for an identifier and its role."""
         raw_value = str(value)
         mapping = self.id_maps[role]
         if raw_value not in mapping:
@@ -138,7 +144,9 @@ class CapturePseudonymizer:
             mapping[raw_value] = f"{self._PREFIXES[role]}-{index:03}"
         return mapping[raw_value]
 
-    def sanitize(self, value: Any, key: str = "") -> Any:
+    def sanitize(  # pylint: disable=too-many-return-statements,too-many-branches
+        self, value: Any, key: str = ""
+    ) -> Any:
         """Sanitize a decoded JSON value, keeping its schema and value types."""
         if key in self._TOKEN_FIELDS:
             return None
@@ -216,6 +224,7 @@ class CapturePseudonymizer:
 
 
 def _numeric_ids_equal(left: Any, right: Any) -> bool:
+    """Compare identifier strings while ignoring leading zeroes on numbers."""
     left_text = str(left).strip()
     right_text = str(right).strip()
     if left_text == right_text:
@@ -283,8 +292,7 @@ def _find_target_context(
     for relation in relations:
         applicant_id = str(relation["noPartenaireDemandeur"])
         customer_id = str(relation["noPartenaireTitulaire"])
-        pair = (applicant_id, customer_id)
-        if pair in seen:
+        if (pair := (applicant_id, customer_id)) in seen:
             continue
         seen.add(pair)
         if summary_index >= len(summaries):
@@ -317,21 +325,22 @@ def _fixture_group(path: str, scenario_name: str) -> str:
 
 def _find_target_contract_info(
     responses: list[CapturedResponse], contract_id: str
-) -> dict[str, Any]:
+) -> ContractTyping:
     """Find the captured contract record matching the requested contract number."""
     for response in responses:
         if response.profile != "web" or not response.path.endswith("/contrats"):
             continue
-        payload = _json_body(response)
-        if not isinstance(payload, dict):
+        raw_payload = _json_body(response)
+        if not isinstance(raw_payload, dict):
             continue
-        for contract_info in payload.get("listeContrats", []):
-            if _numeric_ids_equal(contract_id, contract_info.get("noContrat", "")):
+        payload = cast(ListContractsTyping, raw_payload)
+        for contract_info in payload["listeContrats"]:
+            if _numeric_ids_equal(contract_id, contract_info["noContrat"]):
                 return contract_info
     raise ValueError("La capture ne contient pas les détails du contrat cible.")
 
 
-def _scenario_name(contract_info: dict[str, Any], winter_period: bool) -> str:
+def _scenario_name(contract_info: Mapping[str, Any], winter_period: bool) -> str:
     """Build a safe fixture directory name from the rate, option, and season."""
     rate = str(contract_info["tarifActuel"])
     option = str(contract_info.get("optionTarifActuel") or "")
@@ -365,8 +374,7 @@ def _sanitize_body(
     if "text/html" in content_type.casefold():
         return b"", "bin"
 
-    payload = _json_body(response)
-    if payload is not None:
+    if (payload := _json_body(response)) is not None:
         clean_payload = pseudonymizer.sanitize(payload)
         return (
             (json.dumps(clean_payload, indent=2, ensure_ascii=False) + "\n").encode(
@@ -411,6 +419,7 @@ def _write_fixture_set(
     pseudonymizer: CapturePseudonymizer,
     contract_id: str,
     reference_date: str,
+    *,
     winter_period: bool,
 ) -> str:
     """Write sanitized replay responses and scenario metadata into a staging tree."""
@@ -523,7 +532,7 @@ def anonymize_capture_to_fixtures(
             pseudonymizer,
             contract_id,
             reference_date,
-            winter_period,
+            winter_period=winter_period,
         )
         _audit_staging_tree(staging_root)
 

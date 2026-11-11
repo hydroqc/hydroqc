@@ -18,6 +18,7 @@ def _write_response(
     *,
     content_type: str = "application/json",
 ) -> None:
+    """Write one raw response and metadata pair for fixture tests."""
     folder = root / profile
     folder.mkdir(parents=True, exist_ok=True)
     stem = f"{sequence:04}"
@@ -52,6 +53,7 @@ def _write_profile(
     rate: str = "D",
     option: str = "CPC",
 ) -> None:
+    """Write the representative relation and contract API responses."""
     base = f"/wsapi/{api_profile}/prive/api/v3_0/partenaires"
     _write_response(
         root,
@@ -123,7 +125,7 @@ def _write_profile(
     )
 
 
-def test_anonymize_capture_installs_safe_replay_fixtures(tmp_path: Path) -> None:
+def test_capture_installs_safe_fixtures(tmp_path: Path) -> None:
     """Install fixtures with fake identity while keeping measured values and dates."""
     capture_root = tmp_path / "raw"
     _write_profile(capture_root, "web", "web")
@@ -194,9 +196,7 @@ def test_anonymize_capture_installs_safe_replay_fixtures(tmp_path: Path) -> None
     assert b"real@example.com" not in all_fixture_bytes
 
 
-def test_anonymize_capture_uses_rate_as_scenario_name_without_option(
-    tmp_path: Path,
-) -> None:
+def test_capture_uses_rate_only_name(tmp_path: Path) -> None:
     """Install a rate-only contract under its own scenario directory."""
     capture_root = tmp_path / "raw"
     _write_profile(capture_root, "web", "web", rate="DT", option="")
@@ -221,7 +221,7 @@ def test_anonymize_capture_uses_rate_as_scenario_name_without_option(
     assert not (fixture_root / "D_CPC_SUMMER").exists()
 
 
-def test_anonymize_capture_marks_winter_scenario(tmp_path: Path) -> None:
+def test_capture_marks_winter_scenario(tmp_path: Path) -> None:
     """Install winter-period contract data separately with explicit metadata."""
     capture_root = tmp_path / "raw"
     _write_profile(capture_root, "web", "web")
@@ -251,7 +251,7 @@ def test_anonymize_capture_marks_winter_scenario(tmp_path: Path) -> None:
     assert not (fixture_root / "D_CPC_SUMMER").exists()
 
 
-def test_winter_rate_only_scenario_suffixes_rate_name(tmp_path: Path) -> None:
+def test_winter_rate_only_name(tmp_path: Path) -> None:
     """Add the winter marker after a rate-only scenario name."""
     capture_root = tmp_path / "raw"
     _write_profile(capture_root, "web", "web", rate="DT", option="")

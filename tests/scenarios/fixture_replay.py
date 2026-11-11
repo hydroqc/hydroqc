@@ -14,6 +14,7 @@ class FixtureResponse:
     """Small aiohttp-response substitute backed by a fixture body."""
 
     def __init__(self, metadata: dict[str, Any], body: bytes, request_url: str) -> None:
+        """Initialize a replay response from sanitized fixture data."""
         self.status: int = metadata["status"]
         self.headers: dict[str, str] = metadata.get("headers", {})
         self.url: yarl.URL = yarl.URL(request_url)
@@ -41,6 +42,7 @@ class FixtureReplayTransport:
     """Replay recorded responses in order and reject unexpected HTTP calls."""
 
     def __init__(self, fixture_folder: Path | Iterable[Path]) -> None:
+        """Load ordered fixture response events from one or more folders."""
         folders = (
             [fixture_folder]
             if isinstance(fixture_folder, Path)
@@ -60,8 +62,7 @@ class FixtureReplayTransport:
         call = (method.lower(), actual_path)
         self.calls.append(call)
 
-        event_index = len(self.calls) - 1
-        if event_index >= len(self.events):
+        if (event_index := len(self.calls) - 1) >= len(self.events):
             raise AssertionError(
                 f"unexpected HTTP call: {method.upper()} {actual_path}"
             )

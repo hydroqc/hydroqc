@@ -4,7 +4,7 @@ import json
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -26,18 +26,22 @@ def _freeze_hydroqc_clock(
     """Freeze clock calls used by contracts and peak handlers to scenario date."""
 
     class FrozenDate(date):
+        """Date subclass frozen at the scenario reference date."""
+
         @classmethod
         def today(cls) -> "FrozenDate":
             return cls(reference_date.year, reference_date.month, reference_date.day)
 
     class FrozenDateTime(datetime):
+        """Datetime subclass frozen at the scenario reference date."""
+
         @classmethod
         def now(cls, tz: Any = None) -> "FrozenDateTime":
             value = cls.combine(FrozenDate.today(), time.min)
             if tz is None:
                 return value
             if hasattr(tz, "localize"):
-                return tz.localize(value)
+                return cast(FrozenDateTime, tz.localize(value))
             return value.replace(tzinfo=tz)
 
         @classmethod
@@ -86,7 +90,7 @@ async def test_full_d_cpc_scenario_replays(
 
     client._get_access_token = fixture_access_token  # type: ignore[method-assign]
     try:
-        client.http_request = transport.request  # type: ignore[method-assign]
+        client.http_request = transport.request  # type: ignore[assignment]
         scenario = await run_contract_scenario(
             client, common_scenario["contract_id"], reference_date
         )

@@ -12,8 +12,7 @@ from .subtest_contract_m import SubTestContractM
 from .subtest_contract_m_gdp import SubTestContractMGDP
 from .tools import get_env_vars
 
-LIVE_ACCOUNT_CASES = get_env_vars()
-if not LIVE_ACCOUNT_CASES:
+if not (LIVE_ACCOUNT_CASES := get_env_vars()):
     pytest.skip(
         "Configure Hydro-Québec account variables to run live-account tests.",
         allow_module_level=True,

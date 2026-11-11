@@ -21,6 +21,7 @@ from hydroqc.capture_fixtures import anonymize_capture_to_fixtures
 from hydroqc.error import HydroQcError
 from hydroqc.hydro_api.client import HydroClient
 from hydroqc.hydro_api.consts import AUTH_CLIENT_MOBILE, AUTH_CLIENT_WEB
+from hydroqc.types.contract import ContractTyping
 from hydroqc.utils import EST_TIMEZONE
 
 SESSION_DIR = Path.home() / ".hydroqc" / "capture"
@@ -30,7 +31,7 @@ def create_contract_object(
     client: HydroClient,
     context: tuple[str, str, str],
     contract_id: str,
-    contract_info: dict[str, Any],
+    contract_info: ContractTyping,
 ) -> Contract:
     """Instantiate the contract subclass selected by its live rate data."""
     rate = contract_info["tarifActuel"]
@@ -73,8 +74,7 @@ def discover_contract_surface(value: Any, *, depth: int = 1) -> dict[str, Any]:
                     bool,
                     bytes,
                 }:
-                    child = getattr(value, name)
-                    if child is not None:
+                    if (child := getattr(value, name)) is not None:
                         surface["subobjects"][name] = discover_contract_surface(
                             child, depth=depth - 1
                         )
@@ -90,7 +90,7 @@ class ContractScenarioResult:
     """Results from the shared contract lookup and inspection scenario."""
 
     context: tuple[str, str, str]
-    contract_info: dict[str, Any]
+    contract_info: ContractTyping
     contract: Contract
     surface: dict[str, Any]
     called_methods: list[str]
@@ -101,6 +101,7 @@ class ResponseCaptureWriter:
     """Write unmodified response bodies and request metadata to a temp folder."""
 
     def __init__(self, folder: Path, profile: str) -> None:
+        """Initialize a response writer for one authentication profile."""
         self.folder = folder
         self.profile = profile
         self.sequence = 0
@@ -207,8 +208,7 @@ async def _restore_session(client: HydroClient, profile: str, username: str) -> 
     await client._get_httpsession()
     try:
         if client.is_session_expired():
-            status = await client.try_silent_login()
-            if status is not LoginStatus.SUCCESS:
+            if await client.try_silent_login() is not LoginStatus.SUCCESS:
                 return False
         else:
             # Refresh an expired access token using the persisted refresh token.
@@ -237,8 +237,7 @@ async def find_contract_context(
         relation_count += 1
         applicant_id = relation["noPartenaireDemandeur"]
         customer_id = relation["noPartenaireTitulaire"]
-        customer = (applicant_id, customer_id)
-        if customer in customers:
+        if (customer := (applicant_id, customer_id)) in customers:
             continue
         customers.add(customer)
 
@@ -362,7 +361,9 @@ async def authenticate_clients(username: str) -> dict[str, HydroClient]:
             client.password = password
             status = await client.login()
             if status is LoginStatus.MFA_REQUIRED:
-                code = input(f"Code MFA reçu pour le profil {profile} : ").strip()
+                code = input(  # pylint: disable=bad-builtin
+                    f"Code MFA reçu pour le profil {profile} : "
+                ).strip()
                 status = await client.submit_mfa_code(code)
 
             if status is not LoginStatus.SUCCESS:
@@ -375,7 +376,7 @@ async def authenticate_clients(username: str) -> dict[str, HydroClient]:
             await client.close_session()
         raise
 
-    return {profile: client for profile, client in clients}
+    return dict(clients)
 
 
 async def run_capture(
@@ -468,11 +469,14 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Restore or authenticate each profile and persist its session state."""
     args = parse_args()
-    username = (args.username or input("Nom d’utilisateur Hydro-Québec : ")).strip()
-    if not username:
+    if not (
+        username := (
+            args.username
+            or input("Nom d’utilisateur Hydro-Québec : ")  # pylint: disable=bad-builtin
+        ).strip()
+    ):
         raise SystemExit("Le nom d’utilisateur ne peut pas être vide.")
-    contract_id = args.contract.strip()
-    if not contract_id:
+    if not (contract_id := args.contract.strip()):
         raise SystemExit("Le numéro de contrat ne peut pas être vide.")
     print(
         "Les sessions seront conservées localement sans chiffrement dans "
