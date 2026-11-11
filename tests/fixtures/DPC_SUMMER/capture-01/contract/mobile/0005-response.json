@@ -5,15 +5,15 @@
       "numeroContrat": "FIXTURE-CONTRACT-001",
       "dateFinPeriode": "2027-01-04",
       "dateDebutPeriode": "2026-11-03",
-      "dateDerniereLecturePeriode": "2026-11-09",
+      "dateDerniereLecturePeriode": "2026-11-10",
       "heureDerniereLecturePeriode": "23:59:00",
       "nbJourLecturePeriode": 10,
       "nbJourPrevuPeriode": 30,
-      "consoTotalProjetePeriode": 5545,
-      "consoTotalPeriode": 493,
+      "consoTotalProjetePeriode": 5533,
+      "consoTotalPeriode": 559,
       "consoHautPeriode": 0,
-      "consoRegPeriode": 493,
-      "moyenneKwhJourPeriode": 70.4,
+      "consoRegPeriode": 559,
+      "moyenneKwhJourPeriode": 69.9,
       "montantFacturePeriode": 0.01,
       "moyenneDollarsJourPeriode": 0.01,
       "codeConsPeriode": "A",
@@ -58,7 +58,7 @@
       "isEligibleDRCV": false,
       "montantChauffagePeriode": 0,
       "montantClimatisationPeriode": 0,
-      "kwhChauffagePeriode": 0,
+      "kwhChauffagePeriode": 30,
       "kwhClimatisationPeriode": 0,
       "montantVenteTranche1": 0.01,
       "listePrixTranche1": [
@@ -125,7 +125,7 @@
           "type": "taxes",
           "label": "Taxes",
           "legendLabel": "Taxes",
-          "montant": 0
+          "montant": 0.01
         }
       ],
       "texteValeurChauffage": "ND",
@@ -327,7 +327,7 @@
       "montantChauffagePeriode": 0,
       "montantClimatisationPeriode": 0,
       "kwhChauffagePeriode": 0,
-      "kwhClimatisationPeriode": 400,
+      "kwhClimatisationPeriode": 399,
       "montantVenteTranche1": 0.01,
       "listePrixTranche1": [
         0.07065

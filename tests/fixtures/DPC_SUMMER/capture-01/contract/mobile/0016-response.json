@@ -3,11 +3,11 @@
   "results": [
     {
       "courant": {
-        "dateJourConso": "2026-11-09",
+        "dateJourConso": "2026-11-10",
         "zoneMessageHTMLQuot": null,
-        "consoRegQuot": 71.95,
+        "consoRegQuot": 66.01,
         "consoHautQuot": 0,
-        "consoTotalQuot": 71.95,
+        "consoTotalQuot": 66.01,
         "codeConsoQuot": "R",
         "tempMoyenneQuot": 0,
         "codeTarifQuot": "DPC",
@@ -16,11 +16,11 @@
         "codeEvenementQuot": ""
       },
       "compare": {
-        "dateJourConso": "2025-11-10",
+        "dateJourConso": "2025-11-11",
         "zoneMessageHTMLQuot": null,
-        "consoRegQuot": 68.86,
+        "consoRegQuot": 70.62,
         "consoHautQuot": 0,
-        "consoTotalQuot": 68.86,
+        "consoTotalQuot": 70.62,
         "codeConsoQuot": "R",
         "tempMoyenneQuot": 0,
         "codeTarifQuot": "DPC",

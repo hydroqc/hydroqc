@@ -1,3 +1,3 @@
 Contrat;Tarif;Date;kWh bas;kWh Haut;Code de consommation;Température moyenne (°C);Code de température
+FIXTURE-CONTRACT-001;Flex D;2026-11-09;71,95;0,00;R;7;R
 FIXTURE-CONTRACT-001;Flex D;2026-11-08;65,43;0,00;R;5;R
-FIXTURE-CONTRACT-001;Flex D;2026-11-07;73,67;0,00;R;;

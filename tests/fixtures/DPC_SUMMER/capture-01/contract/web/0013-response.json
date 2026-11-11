@@ -4,7 +4,7 @@
     "codeTarif": "DPC",
     "affichageTarifFlex": false,
     "indTempTarifBiEnergieQuot": false,
-    "dateJour": "2026-11-08",
+    "dateJour": "2026-11-09",
     "echelleMinKwhHeureParJour": 0,
     "echelleMaxKwhHeureParJour": 14,
     "zoneMsgHTMLNonDispEnergie": null,
@@ -14,204 +14,60 @@
     "listeDonneesConsoEnergieHoraire": [
       {
         "heure": "00:00:00",
-        "consoReg": 1.55,
+        "consoReg": 13.49,
         "consoHaut": 0,
-        "consoTotal": 1.55,
+        "consoTotal": 13.49,
         "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       },
       {
         "heure": "01:00:00",
-        "consoReg": 1.71,
+        "consoReg": 11.76,
         "consoHaut": 0,
-        "consoTotal": 1.71,
+        "consoTotal": 11.76,
         "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       },
       {
         "heure": "02:00:00",
-        "consoReg": 1.71,
+        "consoReg": 1.57,
         "consoHaut": 0,
-        "consoTotal": 1.71,
+        "consoTotal": 1.57,
         "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       },
       {
         "heure": "03:00:00",
-        "consoReg": 0.95,
+        "consoReg": 1.11,
         "consoHaut": 0,
-        "consoTotal": 0.95,
+        "consoTotal": 1.11,
         "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       },
       {
         "heure": "04:00:00",
-        "consoReg": 1.48,
+        "consoReg": 1.16,
         "consoHaut": 0,
-        "consoTotal": 1.48,
+        "consoTotal": 1.16,
         "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       },
       {
         "heure": "05:00:00",
-        "consoReg": 1.86,
+        "consoReg": 1.32,
         "consoHaut": 0,
-        "consoTotal": 1.86,
+        "consoTotal": 1.32,
         "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       },
       {
         "heure": "06:00:00",
-        "consoReg": 1.54,
-        "consoHaut": 0,
-        "consoTotal": 1.54,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "07:00:00",
-        "consoReg": 1.88,
-        "consoHaut": 0,
-        "consoTotal": 1.88,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "08:00:00",
-        "consoReg": 2.07,
-        "consoHaut": 0,
-        "consoTotal": 2.07,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "09:00:00",
-        "consoReg": 1.93,
-        "consoHaut": 0,
-        "consoTotal": 1.93,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "10:00:00",
-        "consoReg": 2.05,
-        "consoHaut": 0,
-        "consoTotal": 2.05,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "11:00:00",
-        "consoReg": 2.15,
-        "consoHaut": 0,
-        "consoTotal": 2.15,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "12:00:00",
-        "consoReg": 1.65,
-        "consoHaut": 0,
-        "consoTotal": 1.65,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "13:00:00",
-        "consoReg": 1.99,
-        "consoHaut": 0,
-        "consoTotal": 1.99,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "14:00:00",
-        "consoReg": 5.24,
-        "consoHaut": 0,
-        "consoTotal": 5.24,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "15:00:00",
-        "consoReg": 2.69,
-        "consoHaut": 0,
-        "consoTotal": 2.69,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "16:00:00",
-        "consoReg": 3.97,
-        "consoHaut": 0,
-        "consoTotal": 3.97,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "17:00:00",
-        "consoReg": 2.29,
-        "consoHaut": 0,
-        "consoTotal": 2.29,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "18:00:00",
-        "consoReg": 3.6,
-        "consoHaut": 0,
-        "consoTotal": 3.6,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "19:00:00",
-        "consoReg": 2.93,
-        "consoHaut": 0,
-        "consoTotal": 2.93,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "20:00:00",
-        "consoReg": 2.61,
-        "consoHaut": 0,
-        "consoTotal": 2.61,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "21:00:00",
-        "consoReg": 2.16,
-        "consoHaut": 0,
-        "consoTotal": 2.16,
-        "codeConso": "R",
-        "codeEvemenentEnergie": "",
-        "zoneMessageHTMLEnergie": null
-      },
-      {
-        "heure": "22:00:00",
         "consoReg": 1.95,
         "consoHaut": 0,
         "consoTotal": 1.95,
@@ -220,10 +76,154 @@
         "zoneMessageHTMLEnergie": null
       },
       {
-        "heure": "23:00:00",
-        "consoReg": 13.47,
+        "heure": "07:00:00",
+        "consoReg": 2.65,
         "consoHaut": 0,
-        "consoTotal": 13.47,
+        "consoTotal": 2.65,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "08:00:00",
+        "consoReg": 2.75,
+        "consoHaut": 0,
+        "consoTotal": 2.75,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "09:00:00",
+        "consoReg": 1.69,
+        "consoHaut": 0,
+        "consoTotal": 1.69,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "10:00:00",
+        "consoReg": 1.15,
+        "consoHaut": 0,
+        "consoTotal": 1.15,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "11:00:00",
+        "consoReg": 1.18,
+        "consoHaut": 0,
+        "consoTotal": 1.18,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "12:00:00",
+        "consoReg": 1.48,
+        "consoHaut": 0,
+        "consoTotal": 1.48,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "13:00:00",
+        "consoReg": 1.26,
+        "consoHaut": 0,
+        "consoTotal": 1.26,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "14:00:00",
+        "consoReg": 1.96,
+        "consoHaut": 0,
+        "consoTotal": 1.96,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "15:00:00",
+        "consoReg": 2.06,
+        "consoHaut": 0,
+        "consoTotal": 2.06,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "16:00:00",
+        "consoReg": 1.86,
+        "consoHaut": 0,
+        "consoTotal": 1.86,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "17:00:00",
+        "consoReg": 4.61,
+        "consoHaut": 0,
+        "consoTotal": 4.61,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "18:00:00",
+        "consoReg": 2.68,
+        "consoHaut": 0,
+        "consoTotal": 2.68,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "19:00:00",
+        "consoReg": 2.06,
+        "consoHaut": 0,
+        "consoTotal": 2.06,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "20:00:00",
+        "consoReg": 2.25,
+        "consoHaut": 0,
+        "consoTotal": 2.25,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "21:00:00",
+        "consoReg": 1.63,
+        "consoHaut": 0,
+        "consoTotal": 1.63,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "22:00:00",
+        "consoReg": 2.22,
+        "consoHaut": 0,
+        "consoTotal": 2.22,
+        "codeConso": "R",
+        "codeEvemenentEnergie": "",
+        "zoneMessageHTMLEnergie": null
+      },
+      {
+        "heure": "23:00:00",
+        "consoReg": 6.09,
+        "consoHaut": 0,
+        "consoTotal": 6.09,
         "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
