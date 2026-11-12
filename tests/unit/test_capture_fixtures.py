@@ -418,7 +418,7 @@ def test_info_compte_is_filtered_and_personal_data_is_audited(
     assert account["compteBancaire"] == "000000000"
     assert account["listeNoContrat"] == ["FIXTURE-CONTRACT-001"]
     assert cockpit["courriel"] == "fixture@example.invalid"
-    assert sanitized["contactLibre"] == "fixture@example.invalid"
+    assert sanitized["contactLibre"] == "Reach fixture@example.invalid"
     assert sanitized["MontantRestant"] == "0.01"
     assert sanitized["CoûtTotal"] == 0.01
     assert sanitized["nombreContrats"] == 2
@@ -479,3 +479,12 @@ def test_info_compte_retains_target_account_with_leading_zero_variation() -> Non
     assert filtered["infoCockpitPourPartenaireModel"]["listeComptesContrats"] == [
         {"noCompteContrat": "123", "listeNoContrat": ["42"]}
     ]
+
+
+def test_presidio_anonymizes_french_person_entities() -> None:
+    """Use the configured French Presidio recognizer on otherwise free text."""
+    pseudonymizer = CapturePseudonymizer(
+        "contract", ("applicant", "customer", "account")
+    )
+
+    assert pseudonymizer.sanitize("Jean Tremblay", "texteLibre") == "Fixture"

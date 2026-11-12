@@ -9,6 +9,7 @@ import pytest
 import pytest_asyncio
 
 from hydroqc.account import Account
+from hydroqc.consts import LoginStatus
 from hydroqc.contract import ContractDCPC
 from hydroqc.contract.common import (
     Contract,
@@ -17,7 +18,6 @@ from hydroqc.contract.common import (
     check_outages_data_present,
 )
 from hydroqc.contract.contract_dpc import check_dpc_data_present
-from hydroqc.consts import LoginStatus
 from hydroqc.customer import Customer
 from hydroqc.error import HydroQcError, HydroQcHTTPError
 from hydroqc.peak.cpc.handler import CPCPeakHandler

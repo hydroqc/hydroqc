@@ -171,14 +171,178 @@ class CapturePseudonymizer:
         r"(?<!\d)(?:\+?1[\s.-]?)?(?:\([2-9]\d{2}\)|[2-9]\d{2})"
         r"[\s.-]?[2-9]\d{2}[\s.-]?\d{4}(?!\d)"
     )
+    _PRESIDIO_REPLACEMENTS = {
+        "PERSON": "Fixture",
+        "EMAIL": "fixture@example.invalid",
+        "EMAIL_ADDRESS": "fixture@example.invalid",
+        "PHONE_NUMBER": "514-555-0100",
+        "URL": "https://example.invalid",
+        "IBAN_CODE": "000000000",
+        "CREDIT_CARD": "0000000000000000",
+        "IP_ADDRESS": "192.0.2.1",
+    }
+    _PRESIDIO_TEXT_ENTITIES = {
+        "PERSON",
+        "EMAIL",
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "URL",
+        "IBAN_CODE",
+        "CREDIT_CARD",
+        "IP_ADDRESS",
+    }
+    _PRESERVE_NER_KEY_MARKERS = (
+        "code",
+        "date",
+        "time",
+        "label",
+        "tooltip",
+        "url",
+        "tarif",
+        "option",
+        "offre",
+        "uuid",
+        "temperature",
+        "consommation",
+        "puissance",
+        "mesure",
+        "unite",
+        "jour",
+        "periode",
+    )
 
     def __init__(self, contract_id: str, target_context: tuple[str, str, str]):
         """Initialize pseudonymization maps for the selected contract context."""
+        from presidio_analyzer import AnalyzerEngine
+        from presidio_analyzer.nlp_engine import NlpEngineProvider
+        from presidio_analyzer.predefined_recognizers import (
+            CreditCardRecognizer,
+            EmailRecognizer,
+            IbanRecognizer,
+            IpRecognizer,
+            PhoneRecognizer,
+            UrlRecognizer,
+        )
+        from presidio_analyzer.predefined_recognizers.nlp_engine_recognizers import (
+            spacy_recognizer,
+        )
+
+        SpacyRecognizer = spacy_recognizer.SpacyRecognizer
+        from presidio_analyzer.recognizer_registry import RecognizerRegistry
+        from presidio_anonymizer import AnonymizerEngine
+
         self.contract_id = contract_id
         self.target_context = target_context
         self.id_maps: dict[str, dict[str, str]] = {role: {} for role in self._PREFIXES}
         self.sensitive_originals: set[str] = set()
+        nlp_engine = NlpEngineProvider(
+            nlp_configuration={
+                "nlp_engine_name": "spacy",
+                "models": [{"lang_code": "fr", "model_name": "fr_core_news_sm"}],
+            }
+        ).create_engine()
+        registry = RecognizerRegistry(supported_languages=["fr"])
+        for recognizer in (
+            SpacyRecognizer(supported_language="fr"),
+            EmailRecognizer(supported_language="fr"),
+            PhoneRecognizer(supported_language="fr", supported_regions=("CA",)),
+            IbanRecognizer(supported_language="fr"),
+            CreditCardRecognizer(supported_language="fr"),
+            IpRecognizer(supported_language="fr"),
+            UrlRecognizer(supported_language="fr"),
+        ):
+            registry.add_recognizer(recognizer)
+        self._presidio_analyzer = AnalyzerEngine(
+            registry=registry,
+            nlp_engine=nlp_engine,
+            supported_languages=["fr"],
+        )
+        self._presidio_anonymizer = AnonymizerEngine()  # type: ignore[no-untyped-call]
         self._seed_target_ids()
+
+    def _presidio_replace(self, value: Any, entity_type: str, replacement: str) -> Any:
+        """Apply a deterministic replacement through Presidio's anonymizer."""
+        from presidio_anonymizer.entities import (
+            OperatorConfig,
+        )
+        from presidio_anonymizer.entities import (
+            RecognizerResult as AnonymizerRecognizerResult,
+        )
+
+        if value is None:
+            return None
+        source = str(value)
+        if source:
+            self._remember_sensitive_value(source)
+        result = AnonymizerRecognizerResult(
+            entity_type=entity_type, start=0, end=len(source), score=1.0
+        )
+        anonymized = self._presidio_anonymizer.anonymize(
+            text=source,
+            analyzer_results=[result],
+            operators={
+                entity_type: OperatorConfig("replace", {"new_value": replacement})
+            },
+        ).text
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int) and replacement == "0.01":
+            return 0
+        if isinstance(value, float) and replacement == "0.01":
+            return 0.01
+        return anonymized
+
+    def _anonymize_detected_text(self, value: str, key: str) -> str:
+        """Detect free-text PII and anonymize its spans with Presidio."""
+        from presidio_anonymizer.entities import (
+            OperatorConfig,
+        )
+        from presidio_anonymizer.entities import (
+            RecognizerResult as AnonymizerRecognizerResult,
+        )
+
+        if not value.strip():
+            return value
+        normalized_key = self._normalized_key(key)
+        preserve_ner = any(
+            marker in normalized_key for marker in self._PRESERVE_NER_KEY_MARKERS
+        )
+        detected_results = self._presidio_analyzer.analyze(
+            text=value,
+            language="fr",
+            score_threshold=0.65,
+        )
+        results = [
+            result
+            for result in detected_results
+            if result.entity_type in self._PRESIDIO_TEXT_ENTITIES
+            and not (preserve_ner and result.entity_type in {"PERSON", "URL"})
+        ]
+        for result in results:
+            self._remember_sensitive_value(
+                value[result.start : result.end]  # noqa: E203
+            )
+        if not results:
+            return value
+        anonymizer_results = [
+            AnonymizerRecognizerResult(
+                entity_type=result.entity_type,
+                start=result.start,
+                end=result.end,
+                score=result.score,
+            )
+            for result in results
+        ]
+        operators = {
+            entity_type: OperatorConfig("replace", {"new_value": replacement})
+            for entity_type, replacement in self._PRESIDIO_REPLACEMENTS.items()
+        }
+        anonymized = self._presidio_anonymizer.anonymize(
+            text=value,
+            analyzer_results=anonymizer_results,
+            operators=operators,
+        )
+        return str(anonymized.text)
 
     def _seed_target_ids(self) -> None:
         """Assign stable fixture identifiers to the target account context."""
@@ -210,7 +374,16 @@ class CapturePseudonymizer:
                 for placeholder in self._FAKE_FIELDS.values()
             }
             placeholder_values.update(
-                {"fixture", "fixture@example.invalid", "514-555-0100", "0.01"}
+                {
+                    "fixture",
+                    "fixture@example.invalid",
+                    "514-555-0100",
+                    "0.01",
+                    "true",
+                    "false",
+                    "none",
+                    "null",
+                }
             )
             # Tiny values commonly occur in dates and measurements; checking them
             # globally would produce false positives in otherwise clean fixtures.
@@ -218,6 +391,7 @@ class CapturePseudonymizer:
                 len(raw_value) >= 5
                 and raw_value.casefold() not in placeholder_values
                 and not raw_value.startswith("FIXTURE-")
+                and not re.fullmatch(r"[+-]?\d+(?:\.\d+)?", raw_value)
             ):
                 self.sensitive_originals.add(raw_value)
 
@@ -237,6 +411,8 @@ class CapturePseudonymizer:
         return any(marker in normalized for marker in self._PERSONAL_KEY_MARKERS)
 
     def _is_financial_field(self, key: str) -> bool:
+        if "$" in key:
+            return True
         normalized = self._normalized_key(key)
         return any(marker in normalized for marker in self._FINANCIAL_KEY_MARKERS)
 
@@ -258,11 +434,29 @@ class CapturePseudonymizer:
             None,
         )
         if id_role is not None and value is not None:
-            return self._mapped_id(id_role, value)
+            return self._presidio_replace(
+                value,
+                f"HYDRO_{id_role.upper()}",
+                self._mapped_id(id_role, value),
+            )
         if normalized_key == "listenocontrat" and isinstance(value, list):
-            return [self._mapped_id("contract", item) for item in value]
+            return [
+                self._presidio_replace(
+                    item,
+                    "HYDRO_CONTRACT",
+                    self._mapped_id("contract", item),
+                )
+                for item in value
+            ]
         if normalized_key == "listecomptecontrat" and isinstance(value, list):
-            return [self._mapped_id("account", item) for item in value]
+            return [
+                self._presidio_replace(
+                    item,
+                    "HYDRO_ACCOUNT",
+                    self._mapped_id("account", item),
+                )
+                for item in value
+            ]
         fake_field = next(
             (
                 field
@@ -272,20 +466,16 @@ class CapturePseudonymizer:
             None,
         )
         if fake_field is not None:
-            self._remember_sensitive_value(value)
-            return self._FAKE_FIELDS[fake_field]
+            return self._presidio_replace(
+                value, "HYDRO_PERSONAL_FIELD", str(self._FAKE_FIELDS[fake_field])
+            )
         if self._is_personal_field(key):
-            self._remember_sensitive_value(value)
             if value is None:
                 return None
-            return "fixture@example.invalid" if "mail" in normalized_key else "Fixture"
-        if isinstance(value, str):
-            if self._EMAIL_PATTERN.search(value):
-                self._remember_sensitive_value(value)
-                return "fixture@example.invalid"
-            if self._PHONE_PATTERN.search(value):
-                self._remember_sensitive_value(value)
-                return "514-555-0100"
+            replacement = (
+                "fixture@example.invalid" if "mail" in normalized_key else "Fixture"
+            )
+            return self._presidio_replace(value, "HYDRO_PERSONAL_FIELD", replacement)
         if key.startswith(("zoneMessageHTML", "zoneMsgHTML")):
             return None if value is None else ""
         if key.startswith("tooltipId"):
@@ -295,9 +485,7 @@ class CapturePseudonymizer:
         if self._is_financial_field(key):
             if isinstance(value, bool) or value is None:
                 return value
-            if isinstance(value, str):
-                return "0.01"
-            return 0.01 if isinstance(value, float) else 0
+            return self._presidio_replace(value, "HYDRO_FINANCIAL", "0.01")
         if isinstance(value, bool):
             return value
         if key.startswith("nb") and isinstance(value, int):
@@ -328,6 +516,8 @@ class CapturePseudonymizer:
             return clean
         if isinstance(value, list):
             return [self.sanitize(item, key) for item in value]
+        if isinstance(value, str):
+            return self._anonymize_detected_text(value, key)
         return value
 
     def replace_ids_in_text(self, text: str) -> str:

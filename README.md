@@ -69,6 +69,18 @@ python -m venv .venv  # skip if the virtual environment already exists
 .venv/bin/hydroqc-capture
 ```
 
+`test_requirements.txt` includes `capture_requirements.txt`, which installs the
+optional Presidio capture/anonymization dependencies and the small French spaCy
+model. These are not runtime dependencies of HydroQC. To install only the
+capture-specific dependencies in an existing environment, run:
+
+```bash
+.venv/bin/python -m pip install -r capture_requirements.txt
+```
+
+The French model is installed with these packages; capture and fixture
+pseudonymization do not download a model at runtime.
+
 The command prompts for the username and, when needed, the password and MFA
 code. Once logged in, it lists the contracts available on the account and asks
 which one to capture. Pass `--contract <contract-number>` to skip that prompt.
@@ -142,10 +154,13 @@ for local diagnosis; remove them securely when finished.
 Add one full scenario test for each contract type in `tests/scenarios/`, using
 `tests/scenarios/test_d_cpc.py` as the template. Parameterize the test over
 `web` and `mobile`, load the selected fixture set's `common` responses followed
-by its `contract` responses, and replay the complete scenario through
-`run_contract_scenario`. Assert the expected rate and option, and assert that
-the replay transport consumed every recorded response. If a contract type has
-multiple fixture sets, the scenario test discovers and replays each set.
+by its `contract` responses, and replay the complete authenticated hierarchy
+through `run_webuser_contract_scenario` (`WebUser → Customer → Account →
+Contract`). Assert the expected rate and option, and assert that the replay
+transport consumed every recorded response. If a contract type has multiple
+fixture sets, the scenario test discovers and replays each set. Contract
+fixtures without the `infoCompte` responses needed for the authenticated
+hierarchy must be recaptured before they can run this full scenario.
 
 Run the new scenario without network access, then run all safe local tests:
 

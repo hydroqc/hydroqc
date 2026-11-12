@@ -10,8 +10,8 @@
     "noPartenaireTitulaire": "FIXTURE-CUSTOMER-002",
     "nom1Demandeur": "Fixture Applicant",
     "nom1Titulaire": "Fixture Holder",
-    "nom2Demandeur": "",
-    "nom2Titulaire": "",
+    "nom2Demandeur": "<HYDRO_PERSONAL_FIELD>",
+    "nom2Titulaire": "<HYDRO_PERSONAL_FIELD>",
     "typeRelation": "FIXTURE"
   }
 ]

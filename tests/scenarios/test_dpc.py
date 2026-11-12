@@ -10,6 +10,7 @@ import pytest
 from hydroqc.capture import run_contract_scenario
 from hydroqc.contract.contract_dpc import ContractDPC, WinterState
 from hydroqc.hydro_api.client import HydroClient
+
 from .fixture_replay import FixtureReplayTransport
 from .scenario_helpers import freeze_hydroqc_clock
 

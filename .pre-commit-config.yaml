@@ -44,6 +44,7 @@ repos:
   hooks:
   - id: mypy
     args: [--strict, --pretty, --show-error-codes]
+    exclude: ^(docs/source/conf\.py|examples/hydro\.py|\.github/scripts/home_assistant_versions\.py|tests/scenarios/test_dt\.py)$
     additional_dependencies:
       - "types-pytz==2025.2.0.20251108"
       - "types-PyYAML==6.0.12.20260724"
@@ -53,3 +54,6 @@ repos:
       - "aiocache==0.12.3"
       - "pkce==1.0.3"
       - "pytest-asyncio==1.4.0"
+      - "presidio-analyzer==2.2.366"
+      - "presidio-anonymizer==2.2.366"
+      - "fr-core-news-sm==3.8.0"

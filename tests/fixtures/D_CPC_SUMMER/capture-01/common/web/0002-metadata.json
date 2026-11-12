@@ -2,7 +2,7 @@
   "profile": "web",
   "sequence": 2,
   "request_method": "get",
-  "request_path": "/wsapi/web/prive/api/v3_0/partenaires/calculerSommaireContractuel",
+  "request_path": "/wsapi/web/prive/api/v3_0/partenaires/infoCompte",
   "status": 200,
   "headers": {
     "Content-Type": "application/json"

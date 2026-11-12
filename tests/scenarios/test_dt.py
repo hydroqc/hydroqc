@@ -10,6 +10,7 @@ import pytest
 from hydroqc.capture import run_contract_scenario
 from hydroqc.contract.contract_dt import ContractDT
 from hydroqc.hydro_api.client import HydroClient
+
 from .fixture_replay import FixtureReplayTransport
 from .scenario_helpers import freeze_hydroqc_clock
 
@@ -94,7 +95,7 @@ async def test_full_dt_scenario_replays(
                         (metadata_path.parent / metadata["body_file"]).read_text(
                             encoding="utf-8"
                         )
-                    )
+                    )  # type: ignore[no-any-return]
             raise AssertionError(f"No fixture response found for {path_suffix}")
 
         period_response = response_for_path(
