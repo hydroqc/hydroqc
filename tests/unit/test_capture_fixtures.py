@@ -370,9 +370,9 @@ def test_winter_scenarios_support_other_rates(
     assert scenario_name == expected_name
 
 
-def test_info_compte_is_filtered_and_personal_data_is_audited(
+def test_info_compte_is_filtered_and_personal_data_is_audited(  # pylint: disable=invalid-name
     tmp_path: Path,
-) -> None:
+) -> None:  # pylint: disable=invalid-name
     """Filter unrelated accounts and scrub/audit personal and financial fields."""
     pseudonymizer = CapturePseudonymizer(
         "contract-private",
@@ -461,7 +461,9 @@ def test_info_compte_is_filtered_and_personal_data_is_audited(
         _audit_staging_tree(staging_root, pseudonymizer)
 
 
-def test_info_compte_retains_target_account_with_leading_zero_variation() -> None:
+def test_info_compte_retains_target_account_with_leading_zero_variation() -> (
+    None
+):  # pylint: disable=invalid-name
     """Keep targeted customer responses when account IDs have different padding."""
     pseudonymizer = CapturePseudonymizer("42", ("applicant", "customer", "000123"))
     payload = {
@@ -481,7 +483,9 @@ def test_info_compte_retains_target_account_with_leading_zero_variation() -> Non
     ]
 
 
-def test_presidio_anonymizes_french_person_entities() -> None:
+def test_presidio_anonymizes_french_person_entities() -> (
+    None
+):  # pylint: disable=invalid-name
     """Use the configured French Presidio recognizer on otherwise free text."""
     pseudonymizer = CapturePseudonymizer(
         "contract", ("applicant", "customer", "account")

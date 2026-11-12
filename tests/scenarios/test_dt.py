@@ -3,7 +3,7 @@
 import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -91,11 +91,14 @@ async def test_full_dt_scenario_replays(
                     metadata_path.read_text(encoding="utf-8")
                 )
                 if metadata["request_path"].endswith(path_suffix):
-                    return json.loads(
-                        (metadata_path.parent / metadata["body_file"]).read_text(
-                            encoding="utf-8"
-                        )
-                    )  # type: ignore[no-any-return]
+                    return cast(
+                        dict[str, Any],
+                        json.loads(
+                            (metadata_path.parent / metadata["body_file"]).read_text(
+                                encoding="utf-8"
+                            )
+                        ),
+                    )
             raise AssertionError(f"No fixture response found for {path_suffix}")
 
         period_response = response_for_path(

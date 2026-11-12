@@ -213,6 +213,7 @@ class CapturePseudonymizer:
 
     def __init__(self, contract_id: str, target_context: tuple[str, str, str]):
         """Initialize pseudonymization maps for the selected contract context."""
+        # pylint: disable=import-outside-toplevel
         from presidio_analyzer import AnalyzerEngine
         from presidio_analyzer.nlp_engine import NlpEngineProvider
         from presidio_analyzer.predefined_recognizers import (
@@ -226,10 +227,10 @@ class CapturePseudonymizer:
         from presidio_analyzer.predefined_recognizers.nlp_engine_recognizers import (
             spacy_recognizer,
         )
-
-        SpacyRecognizer = spacy_recognizer.SpacyRecognizer
         from presidio_analyzer.recognizer_registry import RecognizerRegistry
         from presidio_anonymizer import AnonymizerEngine
+
+        spacy_recognizer_class = spacy_recognizer.SpacyRecognizer
 
         self.contract_id = contract_id
         self.target_context = target_context
@@ -243,7 +244,7 @@ class CapturePseudonymizer:
         ).create_engine()
         registry = RecognizerRegistry(supported_languages=["fr"])
         for recognizer in (
-            SpacyRecognizer(supported_language="fr"),
+            spacy_recognizer_class(supported_language="fr"),
             EmailRecognizer(supported_language="fr"),
             PhoneRecognizer(supported_language="fr", supported_regions=("CA",)),
             IbanRecognizer(supported_language="fr"),
@@ -257,26 +258,20 @@ class CapturePseudonymizer:
             nlp_engine=nlp_engine,
             supported_languages=["fr"],
         )
-        self._presidio_anonymizer = AnonymizerEngine()  # type: ignore[no-untyped-call]
+        self._presidio_anonymizer = AnonymizerEngine()
         self._seed_target_ids()
 
     def _presidio_replace(self, value: Any, entity_type: str, replacement: str) -> Any:
         """Apply a deterministic replacement through Presidio's anonymizer."""
-        from presidio_anonymizer.entities import (
-            OperatorConfig,
-        )
-        from presidio_anonymizer.entities import (
-            RecognizerResult as AnonymizerRecognizerResult,
-        )
+        # pylint: disable=import-outside-toplevel
+        from presidio_anonymizer.entities import OperatorConfig, RecognizerResult
 
         if value is None:
             return None
         source = str(value)
-        if source:
+        if source := str(value):
             self._remember_sensitive_value(source)
-        result = AnonymizerRecognizerResult(
-            entity_type=entity_type, start=0, end=len(source), score=1.0
-        )
+        result = RecognizerResult(entity_type, start=0, end=len(source), score=1.0)
         anonymized = self._presidio_anonymizer.anonymize(
             text=source,
             analyzer_results=[result],
@@ -294,12 +289,8 @@ class CapturePseudonymizer:
 
     def _anonymize_detected_text(self, value: str, key: str) -> str:
         """Detect free-text PII and anonymize its spans with Presidio."""
-        from presidio_anonymizer.entities import (
-            OperatorConfig,
-        )
-        from presidio_anonymizer.entities import (
-            RecognizerResult as AnonymizerRecognizerResult,
-        )
+        # pylint: disable=import-outside-toplevel
+        from presidio_anonymizer.entities import OperatorConfig, RecognizerResult
 
         if not value.strip():
             return value
@@ -325,8 +316,8 @@ class CapturePseudonymizer:
         if not results:
             return value
         anonymizer_results = [
-            AnonymizerRecognizerResult(
-                entity_type=result.entity_type,
+            RecognizerResult(
+                result.entity_type,
                 start=result.start,
                 end=result.end,
                 score=result.score,
@@ -405,12 +396,14 @@ class CapturePseudonymizer:
         return re.sub(r"[^a-z0-9]", "", unaccented)
 
     def _is_personal_field(self, key: str) -> bool:
+        """Return whether a payload field name indicates personal information."""
         normalized = self._normalized_key(key)
         if normalized.startswith(("nombre", "number")):
             return False
         return any(marker in normalized for marker in self._PERSONAL_KEY_MARKERS)
 
     def _is_financial_field(self, key: str) -> bool:
+        """Return whether a payload field name indicates a financial amount."""
         if "$" in key:
             return True
         normalized = self._normalized_key(key)
@@ -1058,8 +1051,9 @@ def install_public_capture_to_fixtures(
     fixture_name: str,
     winter_period: bool = False,
     replace_existing: bool = False,
-) -> Path:
+) -> Path:  # pylint: disable=too-many-locals,too-many-locals
     """Install sanitized replay fixtures for public peak-data requests."""
+    # pylint: disable=too-many-locals
     fixture_name = validate_fixture_name(fixture_name)
     response_folder = capture_root / "public"
     responses: list[CapturedResponse] = []
