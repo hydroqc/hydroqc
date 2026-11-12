@@ -69,12 +69,14 @@ python -m venv .venv  # skip if the virtual environment already exists
 .venv/bin/hydroqc-capture
 ```
 
-`test_requirements.txt` includes `capture_requirements.txt`, which installs the
+Install `capture_requirements.txt` alongside the test dependencies to get the
 optional Presidio capture/anonymization dependencies and the small French spaCy
-model. These are not runtime dependencies of HydroQC. To install only the
-capture-specific dependencies in an existing environment, run:
+model. These are not runtime dependencies of HydroQC. Keeping these requirements
+separate avoids conflicting with test-only packages such as Home Assistant
+stubs. In a development environment, run:
 
 ```bash
+.venv/bin/python -m pip install -e . -r test_requirements.txt
 .venv/bin/python -m pip install -r capture_requirements.txt
 ```
 
