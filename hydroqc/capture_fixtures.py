@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import tempfile
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from io import StringIO
@@ -99,6 +100,14 @@ class CapturePseudonymizer:
         "succursale": "00000",
         "folio": "0000000",
         "typeRelation": "FIXTURE",
+        "modeEncaissement": "FIXTURE",
+        "payeurDivergent": "FIXTURE",
+        "langueCorrespondance": "fr",
+        "segmentation": "FIXTURE",
+        "categorie": "FIXTURE",
+        "categorieTitulaire": "FIXTURE",
+        "regroupement": "FIXTURE",
+        "typeEntenteSansProjection": "FIXTURE",
     }
     _TOKEN_FIELDS = {
         "access_token",
@@ -117,12 +126,58 @@ class CapturePseudonymizer:
         "optionTarifCPC",
         "offre",
     }
+    _PERSONAL_KEY_MARKERS = (
+        "nom",
+        "prenom",
+        "fullname",
+        "courriel",
+        "email",
+        "mail",
+        "telephone",
+        "phone",
+        "adresse",
+        "address",
+        "rue",
+        "ville",
+        "postal",
+        "civique",
+        "appartement",
+        "banque",
+        "bancaire",
+        "institution",
+        "succursale",
+        "folio",
+        "payeur",
+        "paiement",
+    )
+    _FINANCIAL_KEY_MARKERS = (
+        "montant",
+        "amount",
+        "solde",
+        "balance",
+        "mnt",
+        "cout",
+        "cost",
+        "dollar",
+        "price",
+        "derniermontant",
+        "moyennedollars",
+    )
+    _EMAIL_PATTERN = re.compile(
+        r"\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+        re.IGNORECASE,
+    )
+    _PHONE_PATTERN = re.compile(
+        r"(?<!\d)(?:\+?1[\s.-]?)?(?:\([2-9]\d{2}\)|[2-9]\d{2})"
+        r"[\s.-]?[2-9]\d{2}[\s.-]?\d{4}(?!\d)"
+    )
 
     def __init__(self, contract_id: str, target_context: tuple[str, str, str]):
         """Initialize pseudonymization maps for the selected contract context."""
         self.contract_id = contract_id
         self.target_context = target_context
         self.id_maps: dict[str, dict[str, str]] = {role: {} for role in self._PREFIXES}
+        self.sensitive_originals: set[str] = set()
         self._seed_target_ids()
 
     def _seed_target_ids(self) -> None:
@@ -136,6 +191,7 @@ class CapturePseudonymizer:
     def _mapped_id(self, role: str, value: Any) -> str:
         """Return the deterministic pseudonym for an identifier and its role."""
         raw_value = str(value)
+        self._remember_sensitive_value(raw_value)
         mapping = self.id_maps[role]
         if raw_value not in mapping:
             used = set(mapping.values())
@@ -145,38 +201,105 @@ class CapturePseudonymizer:
             mapping[raw_value] = f"{self._PREFIXES[role]}-{index:03}"
         return mapping[raw_value]
 
+    def _remember_sensitive_value(self, value: Any) -> None:
+        """Remember meaningful originals so the final audit can detect leaks."""
+        if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+            raw_value = str(value).strip()
+            placeholder_values = {
+                str(placeholder).casefold()
+                for placeholder in self._FAKE_FIELDS.values()
+            }
+            placeholder_values.update(
+                {"fixture", "fixture@example.invalid", "514-555-0100", "0.01"}
+            )
+            # Tiny values commonly occur in dates and measurements; checking them
+            # globally would produce false positives in otherwise clean fixtures.
+            if (
+                len(raw_value) >= 5
+                and raw_value.casefold() not in placeholder_values
+                and not raw_value.startswith("FIXTURE-")
+            ):
+                self.sensitive_originals.add(raw_value)
+
+    @classmethod
+    def _normalized_key(cls, key: str) -> str:
+        """Normalize API field names across casing and punctuation variants."""
+        decomposed = unicodedata.normalize("NFKD", key.casefold())
+        unaccented = "".join(
+            char for char in decomposed if not unicodedata.combining(char)
+        )
+        return re.sub(r"[^a-z0-9]", "", unaccented)
+
+    def _is_personal_field(self, key: str) -> bool:
+        normalized = self._normalized_key(key)
+        if normalized.startswith(("nombre", "number")):
+            return False
+        return any(marker in normalized for marker in self._PERSONAL_KEY_MARKERS)
+
+    def _is_financial_field(self, key: str) -> bool:
+        normalized = self._normalized_key(key)
+        return any(marker in normalized for marker in self._FINANCIAL_KEY_MARKERS)
+
     def sanitize(  # pylint: disable=too-many-return-statements,too-many-branches
         self, value: Any, key: str = ""
     ) -> Any:
         """Sanitize a decoded JSON value, keeping its schema and value types."""
-        if key in self._TOKEN_FIELDS:
+        normalized_key = self._normalized_key(key)
+        if normalized_key in {
+            self._normalized_key(item) for item in self._TOKEN_FIELDS
+        }:
             return None
-        if key in self._ID_FIELDS and value is not None:
-            return self._mapped_id(self._ID_FIELDS[key], value)
-        if key == "listeNoContrat" and isinstance(value, list):
+        id_role = next(
+            (
+                role
+                for field, role in self._ID_FIELDS.items()
+                if self._normalized_key(field) == normalized_key
+            ),
+            None,
+        )
+        if id_role is not None and value is not None:
+            return self._mapped_id(id_role, value)
+        if normalized_key == "listenocontrat" and isinstance(value, list):
             return [self._mapped_id("contract", item) for item in value]
-        if key == "listeCompteContrat" and isinstance(value, list):
+        if normalized_key == "listecomptecontrat" and isinstance(value, list):
             return [self._mapped_id("account", item) for item in value]
-        if key in self._FAKE_FIELDS:
-            return self._FAKE_FIELDS[key]
+        fake_field = next(
+            (
+                field
+                for field in self._FAKE_FIELDS
+                if self._normalized_key(field) == normalized_key
+            ),
+            None,
+        )
+        if fake_field is not None:
+            self._remember_sensitive_value(value)
+            return self._FAKE_FIELDS[fake_field]
+        if self._is_personal_field(key):
+            self._remember_sensitive_value(value)
+            if value is None:
+                return None
+            return "fixture@example.invalid" if "mail" in normalized_key else "Fixture"
+        if isinstance(value, str):
+            if self._EMAIL_PATTERN.search(value):
+                self._remember_sensitive_value(value)
+                return "fixture@example.invalid"
+            if self._PHONE_PATTERN.search(value):
+                self._remember_sensitive_value(value)
+                return "514-555-0100"
         if key.startswith(("zoneMessageHTML", "zoneMsgHTML")):
             return None if value is None else ""
         if key.startswith("tooltipId"):
             return "fixture-tooltip"
         if key in self._RATE_FIELDS:
             return value
-        if key.lower().startswith("montant") or key.lower().startswith(
-            ("solde", "mnt", "cout", "derniermontant", "moyennedollars")
-        ):
+        if self._is_financial_field(key):
             if isinstance(value, bool) or value is None:
                 return value
             if isinstance(value, str):
                 return "0.01"
             return 0.01 if isinstance(value, float) else 0
-        if key == "success" and isinstance(value, bool):
-            return True
         if isinstance(value, bool):
-            return key in {"actif", "indEcActif"}
+            return value
         if key.startswith("nb") and isinstance(value, int):
             if key in {
                 "nbJourPrevuPeriode",
@@ -194,7 +317,9 @@ class CapturePseudonymizer:
         if isinstance(value, dict):
             clean: dict[str, Any] = {}
             for child_key, child_value in value.items():
-                if child_key.casefold() in self._TOKEN_FIELDS:
+                if self._normalized_key(child_key) in {
+                    self._normalized_key(item) for item in self._TOKEN_FIELDS
+                }:
                     continue
                 clean_key = child_key
                 if key == "listeComptesContrats":
@@ -222,6 +347,136 @@ class CapturePseudonymizer:
     def fake_request_path(self, path: str) -> str:
         """Remove query parameters and pseudonymize identifiers in the path."""
         return self.replace_ids_in_text(path)
+
+    def filter_target_payload(self, path: str, payload: Any) -> Any:
+        """Keep only the selected customer/account/contract in fixture responses."""
+        applicant_id, customer_id, account_id = self.target_context
+        if path.endswith("/relations") and isinstance(payload, list):
+            return [
+                item
+                for item in payload
+                if isinstance(item, dict)
+                and str(item.get("noPartenaireDemandeur")) == applicant_id
+                and str(item.get("noPartenaireTitulaire")) == customer_id
+            ]
+
+        if "calculerSommaireContractuel" in path and isinstance(payload, dict):
+            accounts = payload.get("comptesContrats")
+            if isinstance(accounts, list):
+                payload["comptesContrats"] = [
+                    account
+                    for account in accounts
+                    if isinstance(account, dict)
+                    and _numeric_ids_equal(account.get("noCompteContrat"), account_id)
+                ]
+                for account in payload["comptesContrats"]:
+                    contracts = account.get("listeNoContrat", [])
+                    account["listeNoContrat"] = [
+                        contract
+                        for contract in contracts
+                        if _numeric_ids_equal(self.contract_id, contract)
+                    ]
+                payload["nbComptesContrats"] = len(payload["comptesContrats"])
+                payload["nbContrats"] = sum(
+                    len(account.get("listeNoContrat", []))
+                    for account in payload["comptesContrats"]
+                )
+            account_map = payload.get("listeComptesContrats")
+            if isinstance(account_map, dict):
+                for key, value in account_map.items():
+                    if isinstance(value, list):
+                        account_map[key] = [
+                            item
+                            for item in value
+                            if _numeric_ids_equal(item, account_id)
+                        ]
+            return payload
+
+        if path.endswith("/infoCompte") and isinstance(payload, dict):
+            cockpit = payload.get("infoCockpitPourPartenaireModel")
+            if isinstance(cockpit, dict):
+                accounts = cockpit.get("listeComptesContrats")
+                if isinstance(accounts, list):
+                    cockpit["listeComptesContrats"] = [
+                        account
+                        for account in accounts
+                        if isinstance(account, dict)
+                        and _numeric_ids_equal(
+                            account.get("noCompteContrat"), account_id
+                        )
+                    ]
+                    for account in cockpit["listeComptesContrats"]:
+                        contracts = account.get("listeNoContrat", [])
+                        account["listeNoContrat"] = [
+                            contract
+                            for contract in contracts
+                            if _numeric_ids_equal(self.contract_id, contract)
+                        ]
+            contracts = payload.get("listeContratModel")
+            if isinstance(contracts, list):
+                payload["listeContratModel"] = [
+                    contract
+                    for contract in contracts
+                    if isinstance(contract, dict)
+                    and _numeric_ids_equal(
+                        self.contract_id, contract.get("noContrat", "")
+                    )
+                ]
+            return payload
+
+        if path.endswith("/contrats") and isinstance(payload, dict):
+            contracts = payload.get("listeContrats")
+            if isinstance(contracts, list):
+                payload["listeContrats"] = [
+                    contract
+                    for contract in contracts
+                    if isinstance(contract, dict)
+                    and _numeric_ids_equal(
+                        self.contract_id, contract.get("noContrat", "")
+                    )
+                ]
+            return payload
+        return payload
+
+    def is_replay_relevant(self, path: str, payload: Any) -> bool:
+        """Drop account-selection responses unrelated to the requested contract."""
+        applicant_id, customer_id, account_id = self.target_context
+        if path.endswith("/relations") and isinstance(payload, list):
+            return any(
+                isinstance(item, dict)
+                and str(item.get("noPartenaireDemandeur")) == applicant_id
+                and str(item.get("noPartenaireTitulaire")) == customer_id
+                for item in payload
+            )
+
+        if "calculerSommaireContractuel" in path and isinstance(payload, dict):
+            return any(
+                isinstance(account, dict)
+                and _numeric_ids_equal(account.get("noCompteContrat"), account_id)
+                and any(
+                    _numeric_ids_equal(self.contract_id, contract_id)
+                    for contract_id in account.get("listeNoContrat", [])
+                )
+                for account in payload.get("comptesContrats", [])
+            )
+
+        if path.endswith("/infoCompte") and isinstance(payload, dict):
+            cockpit = payload.get("infoCockpitPourPartenaireModel")
+            if not isinstance(cockpit, dict):
+                return False
+            return any(
+                isinstance(account, dict)
+                and _numeric_ids_equal(account.get("noCompteContrat"), account_id)
+                for account in cockpit.get("listeComptesContrats", [])
+            )
+
+        if path.endswith("/contrats") and isinstance(payload, dict):
+            return any(
+                isinstance(contract, dict)
+                and _numeric_ids_equal(self.contract_id, contract.get("noContrat", ""))
+                for contract in payload.get("listeContrats", [])
+            )
+        return True
 
 
 def _numeric_ids_equal(left: Any, right: Any) -> bool:
@@ -319,7 +574,11 @@ def _find_target_context(
 
 def _fixture_group(path: str) -> str:
     """Split contract selection responses from contract-specific responses."""
-    if path.endswith("/relations") or "calculerSommaireContractuel" in path:
+    if (
+        path.endswith("/relations")
+        or "calculerSommaireContractuel" in path
+        or path.endswith("/infoCompte")
+    ):
         return "common"
     return "contract"
 
@@ -376,6 +635,7 @@ def _sanitize_body(
         return b"", "bin"
 
     if (payload := _json_body(response)) is not None:
+        payload = pseudonymizer.filter_target_payload(response.path, payload)
         clean_payload = pseudonymizer.sanitize(payload)
         return (
             (json.dumps(clean_payload, indent=2, ensure_ascii=False) + "\n").encode(
@@ -397,11 +657,9 @@ def _sanitize_body(
                     continue
                 if normalized_column in {"contrat", "contract"}:
                     row[column_index] = "FIXTURE-CONTRACT-001"
-                elif any(
-                    marker in normalized_column
-                    for marker in ("amount", "montant", "$", "dollar", "cost", "coût")
-                ):
-                    row[column_index] = "0.01"
+                else:
+                    clean_value = pseudonymizer.sanitize(row[column_index], column_name)
+                    row[column_index] = "" if clean_value is None else str(clean_value)
         buffer = StringIO()
         csv.writer(buffer, delimiter=";", lineterminator="\n").writerows(rows)
         return buffer.getvalue().encode(charset), "csv"
@@ -430,6 +688,10 @@ def _write_fixture_set(
     scenario_name = _scenario_name(target_contract_info, winter_period)
 
     for response in responses:
+        if (payload := _json_body(response)) is not None and not (
+            pseudonymizer.is_replay_relevant(response.path, payload)
+        ):
+            continue
         group = _fixture_group(response.path)
         key = (group, response.profile)
         counters[key] = counters.get(key, 0) + 1
@@ -476,8 +738,10 @@ def _write_fixture_set(
     return scenario_name
 
 
-def _audit_staging_tree(staging_root: Path) -> None:
-    """Reject output containing OAuth fields, cookies, or unstripped URLs."""
+def _audit_staging_tree(
+    staging_root: Path, pseudonymizer: CapturePseudonymizer | None = None
+) -> None:
+    """Reject output containing secrets or known unsanitized personal values."""
     forbidden = (
         "access_token",
         "refresh_token",
@@ -485,12 +749,29 @@ def _audit_staging_tree(staging_root: Path) -> None:
         "set-cookie",
         "request_url",
     )
+    email_pattern = CapturePseudonymizer._EMAIL_PATTERN
+    phone_pattern = CapturePseudonymizer._PHONE_PATTERN
     for path in staging_root.rglob("*"):
         if not path.is_file():
             continue
         text = path.read_bytes().decode("utf-8", errors="ignore").casefold()
         if any(marker in text for marker in forbidden):
             raise ValueError(f"Audit d’anonymisation échoué dans {path.name}.")
+        if pseudonymizer is not None:
+            emails = email_pattern.findall(text)
+            if any(email != "fixture@example.invalid" for email in emails):
+                raise ValueError(f"Audit courriel échoué dans {path.name}.")
+            phones = phone_pattern.findall(text)
+            if any(phone != "514-555-0100" for phone in phones):
+                raise ValueError(f"Audit téléphone échoué dans {path.name}.")
+        if pseudonymizer is not None and any(
+            original.casefold() in text
+            for original in pseudonymizer.sensitive_originals
+        ):
+            raise ValueError(
+                f"Audit d’anonymisation : une valeur sensible originale subsiste "
+                f"dans {path.name}."
+            )
 
 
 def validate_fixture_name(fixture_name: str) -> str:
@@ -569,7 +850,7 @@ def anonymize_capture_to_fixtures(
             fixture_name=fixture_name,
             winter_period=winter_period,
         )
-        _audit_staging_tree(staging_root)
+        _audit_staging_tree(staging_root, pseudonymizer)
         destination = fixture_root / scenario_name / fixture_name
         _install_fixture_bundle(
             staging_root,

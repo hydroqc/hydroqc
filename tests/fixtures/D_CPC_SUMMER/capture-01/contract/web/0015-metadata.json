@@ -2,7 +2,7 @@
   "profile": "web",
   "sequence": 15,
   "request_method": "get",
-  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesQuotidiennesConsommation",
+  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesConsommationMensuelles",
   "status": 200,
   "headers": {
     "Content-Type": "text/json;charset=UTF-8"

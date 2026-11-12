@@ -6,7 +6,11 @@ from typing import Any
 
 import pytest
 
-from hydroqc.capture_fixtures import anonymize_capture_to_fixtures
+from hydroqc.capture_fixtures import (
+    CapturePseudonymizer,
+    _audit_staging_tree,
+    anonymize_capture_to_fixtures,
+)
 
 
 def _write_response(
@@ -53,7 +57,7 @@ def _write_profile(
     rate: str = "D",
     option: str = "CPC",
 ) -> None:
-    """Write the representative relation and contract API responses."""
+    """Write a complete representative account-to-contract API response set."""
     base = f"/wsapi/{api_profile}/prive/api/v3_0/partenaires"
     _write_response(
         root,
@@ -63,25 +67,36 @@ def _write_profile(
         [
             {
                 "noPartenaireDemandeur": "applicant-real",
-                "noPartenaireTitulaire": "customer-other",
-                "nom1Demandeur": "Real Applicant",
-                "nom1Titulaire": "Other Holder",
-            },
-            {
-                "noPartenaireDemandeur": "applicant-real",
                 "noPartenaireTitulaire": "customer-real",
                 "nom1Demandeur": "Real Applicant",
                 "nom1Titulaire": "Real Holder",
             },
         ],
     )
-    _write_response(
-        root,
-        profile,
-        2,
-        f"{base}/calculerSommaireContractuel",
-        {"comptesContrats": [], "nbContrats": 0, "nbComptesContrats": 0},
-    )
+    info_response = {
+        "indEligibilite": True,
+        "infoCockpitPourPartenaireModel": {
+            "noPartenaire": "customer-real",
+            "nom": "Real Holder",
+            "prenom": "Real Firstname",
+            "idTechnique": "technical-real",
+            "courriel": "real@example.com",
+            "langueCorrespondance": "fr",
+            "listeComptesContrats": [
+                {
+                    "noCompteContrat": "account-real",
+                    "listeNoContrat": ["contract-real"],
+                    "adresse": "9 Real Street",
+                    "solde": 82.4,
+                    "montant": 82.4,
+                    "compteBancaire": "123456789012",
+                }
+            ],
+        },
+        "listeContratModel": [],
+        "listeInfoEligibiliteConfirmPaiementOuEntenteModel": [],
+    }
+    _write_response(root, profile, 2, f"{base}/infoCompte", info_response)
     _write_response(
         root,
         profile,
@@ -99,10 +114,11 @@ def _write_profile(
             "nbComptesContrats": 1,
         },
     )
+    _write_response(root, profile, 4, f"{base}/infoCompte", info_response)
     _write_response(
         root,
         profile,
-        4,
+        5,
         f"{base}/contrats",
         {
             "listeContrats": [
@@ -133,7 +149,7 @@ def test_capture_installs_safe_fixtures(tmp_path: Path) -> None:
     _write_response(
         capture_root,
         "web",
-        5,
+        6,
         "/tenant/oauth2/v2.0/token",
         {"access_token": "secret-access", "refresh_token": "secret-refresh"},
     )
@@ -183,6 +199,24 @@ def test_capture_installs_safe_fixtures(tmp_path: Path) -> None:
     )
     assert metadata["request_path"] == "/wsapi/web/prive/api/v1_0/relations"
     assert metadata["headers"] == {"Content-Type": "application/json"}
+    customer_metadata = json.loads(
+        (fixture_path / "common" / "web" / "0002-metadata.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert customer_metadata["request_path"].endswith("/infoCompte")
+    customer_response = json.loads(
+        (fixture_path / "common" / "web" / "0002-response.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    cockpit = customer_response["infoCockpitPourPartenaireModel"]
+    assert cockpit["nom"] == "Fixture"
+    assert cockpit["courriel"] == "fixture@example.invalid"
+    captured_account = cockpit["listeComptesContrats"][0]
+    assert captured_account["noCompteContrat"] == "FIXTURE-ACCOUNT-001"
+    assert captured_account["solde"] == 0.01
+    assert captured_account["compteBancaire"] == "000000000"
     all_fixture_bytes = b"".join(
         path.read_bytes() for path in fixture_root.rglob("*") if path.is_file()
     )
@@ -334,3 +368,114 @@ def test_winter_scenarios_support_other_rates(
     )
 
     assert scenario_name == expected_name
+
+
+def test_info_compte_is_filtered_and_personal_data_is_audited(
+    tmp_path: Path,
+) -> None:
+    """Filter unrelated accounts and scrub/audit personal and financial fields."""
+    pseudonymizer = CapturePseudonymizer(
+        "contract-private",
+        ("applicant-private", "customer-private", "account-private"),
+    )
+    payload: dict[str, Any] = {
+        "indEligibilite": True,
+        "infoCockpitPourPartenaireModel": {
+            "noPartenaire": "related-partner-private",
+            "nom": "Private Holder",
+            "prenom": "Private Name",
+            "courriel": "private.person@example.com",
+            "listeComptesContrats": [
+                {
+                    "noCompteContrat": "account-private",
+                    "adresse": "77 Private Street",
+                    "solde": 125.75,
+                    "compteBancaire": "123456789012",
+                    "listeNoContrat": ["contract-private", "other-contract"],
+                },
+                {
+                    "noCompteContrat": "unrelated-account",
+                    "adresse": "Other Private Street",
+                    "solde": 900.00,
+                },
+            ],
+        },
+        "contactLibre": "Reach private.person@example.com",
+        "MontantRestant": "125.75",
+        "CoûtTotal": 870.25,
+        "nombreContrats": 2,
+    }
+
+    filtered = pseudonymizer.filter_target_payload("/infoCompte", payload)
+    assert pseudonymizer.is_replay_relevant("/infoCompte", filtered)
+    sanitized = pseudonymizer.sanitize(filtered)
+    cockpit = sanitized["infoCockpitPourPartenaireModel"]
+    assert len(cockpit["listeComptesContrats"]) == 1
+    account = cockpit["listeComptesContrats"][0]
+    assert account["noCompteContrat"] == "FIXTURE-ACCOUNT-001"
+    assert account["adresse"] == "123 rue Exemple"
+    assert account["solde"] == 0.01
+    assert account["compteBancaire"] == "000000000"
+    assert account["listeNoContrat"] == ["FIXTURE-CONTRACT-001"]
+    assert cockpit["courriel"] == "fixture@example.invalid"
+    assert sanitized["contactLibre"] == "fixture@example.invalid"
+    assert sanitized["MontantRestant"] == "0.01"
+    assert sanitized["CoûtTotal"] == 0.01
+    assert sanitized["nombreContrats"] == 2
+
+    summary = pseudonymizer.filter_target_payload(
+        "/calculerSommaireContractuel",
+        {
+            "comptesContrats": [
+                {
+                    "noCompteContrat": "account-private",
+                    "listeNoContrat": ["contract-private", "other-contract"],
+                },
+                {"noCompteContrat": "unrelated-account", "listeNoContrat": []},
+            ]
+        },
+    )
+    assert summary["comptesContrats"] == [
+        {
+            "noCompteContrat": "account-private",
+            "listeNoContrat": ["contract-private"],
+        }
+    ]
+    assert pseudonymizer.is_replay_relevant("/calculerSommaireContractuel", summary)
+    assert not pseudonymizer.is_replay_relevant(
+        "/calculerSommaireContractuel",
+        {"comptesContrats": [{"noCompteContrat": "unrelated-account"}]},
+    )
+
+    staging_root = tmp_path / "clean"
+    staging_root.mkdir()
+    fixture_file = staging_root / "response.json"
+    fixture_file.write_text(json.dumps(sanitized), encoding="utf-8")
+    _audit_staging_tree(staging_root, pseudonymizer)
+
+    fixture_file.write_text(
+        json.dumps({"unexpected": "Private Holder"}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="valeur sensible originale"):
+        _audit_staging_tree(staging_root, pseudonymizer)
+
+
+def test_info_compte_retains_target_account_with_leading_zero_variation() -> None:
+    """Keep targeted customer responses when account IDs have different padding."""
+    pseudonymizer = CapturePseudonymizer("42", ("applicant", "customer", "000123"))
+    payload = {
+        "infoCockpitPourPartenaireModel": {
+            "listeComptesContrats": [
+                {"noCompteContrat": "123", "listeNoContrat": ["42"]},
+                {"noCompteContrat": "456", "listeNoContrat": ["84"]},
+            ]
+        },
+        "listeContratModel": [],
+    }
+
+    assert pseudonymizer.is_replay_relevant("/infoCompte", payload)
+    filtered = pseudonymizer.filter_target_payload("/infoCompte", payload)
+    assert filtered["infoCockpitPourPartenaireModel"]["listeComptesContrats"] == [
+        {"noCompteContrat": "123", "listeNoContrat": ["42"]}
+    ]

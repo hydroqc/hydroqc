@@ -7,8 +7,9 @@ from typing import Any
 
 import pytest
 
-from hydroqc.capture import run_contract_scenario
+from hydroqc.capture import run_webuser_contract_scenario
 from hydroqc.hydro_api.client import HydroClient
+
 from .fixture_replay import FixtureReplayTransport
 from .scenario_helpers import freeze_hydroqc_clock
 
@@ -31,7 +32,21 @@ D_CPC_FIXTURE_SETS = sorted(
 async def test_full_d_cpc_scenario_replays(
     profile: str, fixture_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Replay contract selection and all captured D_CPC operations."""
+    """Replay authenticated contract selection and all captured D_CPC operations."""
+    common_profile = fixture_root / "common" / profile
+    info_compte_captures = [
+        metadata_path
+        for metadata_path in common_profile.glob("*-metadata.json")
+        if json.loads(metadata_path.read_text(encoding="utf-8"))
+        .get("request_path", "")
+        .endswith("/infoCompte")
+    ]
+    if len(info_compte_captures) < 2:
+        pytest.skip(
+            "Cette fixture doit être recapturée pour inclure les réponses infoCompte "
+            "du parcours WebUser → Customer → Account."
+        )
+
     rate_scenario: dict[str, Any] = json.loads(
         (fixture_root / "scenario.json").read_text(encoding="utf-8")
     )
@@ -58,8 +73,8 @@ async def test_full_d_cpc_scenario_replays(
     client._get_access_token = fixture_access_token  # type: ignore[method-assign]
     try:
         client.http_request = transport.request  # type: ignore[assignment]
-        scenario = await run_contract_scenario(
-            client, rate_scenario["contract_id"], reference_date
+        scenario = await run_webuser_contract_scenario(
+            client, rate_scenario["contract_id"], profile, reference_date
         )
         transport.assert_complete()
 

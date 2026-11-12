@@ -1,11 +1,11 @@
 {
   "profile": "web",
   "sequence": 11,
-  "request_method": "post",
-  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceTelechargerDonneesConsommation",
+  "request_method": "get",
+  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesQuotidiennesConsommation",
   "status": 200,
   "headers": {
-    "Content-Type": "text/csv;charset=ISO-8859-1"
+    "Content-Type": "text/json;charset=UTF-8"
   },
-  "body_file": "0011-response.csv"
+  "body_file": "0011-response.json"
 }

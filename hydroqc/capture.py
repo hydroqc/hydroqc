@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from hydroqc import contract as contract_module
+from hydroqc.account import Account
 from hydroqc.capture_fixtures import (
     anonymize_capture_to_fixtures,
     install_public_capture_to_fixtures,
@@ -22,12 +23,14 @@ from hydroqc.capture_fixtures import (
 )
 from hydroqc.consts import LoginStatus
 from hydroqc.contract.common import Contract
+from hydroqc.customer import Customer
 from hydroqc.error import HydroQcError
 from hydroqc.hydro_api.client import HydroClient
 from hydroqc.hydro_api.consts import AUTH_CLIENT_MOBILE, AUTH_CLIENT_WEB
 from hydroqc.public_client import PublicClient
 from hydroqc.types.contract import ContractTyping
 from hydroqc.utils import EST_TIMEZONE
+from hydroqc.webuser import WebUser
 
 SESSION_DIR = Path.home() / ".hydroqc" / "capture"
 
@@ -100,6 +103,25 @@ class ContractScenarioResult:
     surface: dict[str, Any]
     called_methods: list[str]
     reference_date: date
+
+
+@dataclass
+class AuthenticatedContract:
+    """Selected contract and its complete authenticated object hierarchy."""
+
+    webuser: WebUser
+    customer: Customer
+    account: Account
+    contract: Contract
+
+    @property
+    def context(self) -> tuple[str, str, str]:
+        """Return applicant, customer, and account identifiers."""
+        return (
+            self.customer.applicant_id,
+            self.customer.customer_id,
+            self.account.account_id,
+        )
 
 
 class ResponseCaptureWriter:
@@ -400,6 +422,70 @@ async def run_contract_scenario(
     context = await find_contract_context(client, contract_id)
     contract_info = await client.get_contract_info(*context, contract_id)
     contract = create_contract_object(client, context, contract_id, contract_info)
+    return await run_contract_object_scenario(
+        context, contract_info, contract, reference_date
+    )
+
+
+async def run_webuser_contract_scenario(
+    client: HydroClient,
+    contract_id: str,
+    profile: str,
+    reference_date: date | None = None,
+) -> ContractScenarioResult:
+    """Load the selected contract through WebUser → Customer → Account."""
+    selected = await load_webuser_contract(client, contract_id, profile)
+    return await run_contract_object_scenario(
+        selected.context,
+        selected.contract._raw_info_data,  # pylint: disable=protected-access
+        selected.contract,
+        reference_date,
+    )
+
+
+async def load_webuser_contract(
+    client: HydroClient, contract_id: str, profile: str
+) -> AuthenticatedContract:
+    """Build the WebUser → Customer → Account → Contract hierarchy from APIs."""
+    webuser = WebUser(
+        "fixture@example.invalid",
+        "",
+        verify_ssl=True,
+        auth_client=profile,
+    )
+    # Reuse the authenticated/captured client rather than opening a second session.
+    webuser._hydro_client = client  # pylint: disable=protected-access
+    await webuser.get_info()
+    await webuser.fetch_customers_info()
+
+    matches: list[AuthenticatedContract] = []
+    for customer in webuser.customers:
+        for account in customer.accounts:
+            for contract in account.contracts:
+                if _contract_ids_match(contract_id, contract.contract_id):
+                    matches.append(
+                        AuthenticatedContract(webuser, customer, account, contract)
+                    )
+    if not matches:
+        raise RuntimeError(
+            f"Contrat {contract_id} absent du parcours WebUser → Customer → Account."
+        )
+    if len(matches) > 1:
+        raise RuntimeError(
+            f"Le contrat {contract_id} correspond à plusieurs comptes; "
+            "la sélection est ambiguë."
+        )
+
+    return matches[0]
+
+
+async def run_contract_object_scenario(
+    context: tuple[str, str, str],
+    contract_info: ContractTyping,
+    contract: Contract,
+    reference_date: date | None = None,
+) -> ContractScenarioResult:
+    """Exercise all discovered operations on an already initialized contract."""
     surface = discover_contract_surface(contract)
     reference_date = reference_date or datetime.now(EST_TIMEZONE).date()
     targets: list[tuple[str, Any, dict[str, Any]]] = [("contract", contract, surface)]
@@ -612,7 +698,9 @@ async def run_capture(
         for profile, client in clients.items():
             writer = ResponseCaptureWriter(capture_dir / profile, profile)
             client.response_capture_callback = writer.capture
-            scenario = await run_contract_scenario(client, contract_id, reference_date)
+            scenario = await run_webuser_contract_scenario(
+                client, contract_id, profile, reference_date
+            )
             fixture_type = (
                 f"{scenario.contract.rate}_{scenario.contract.rate_option}"
                 if scenario.contract.rate_option

@@ -2,10 +2,10 @@
   "profile": "mobile",
   "sequence": 5,
   "request_method": "get",
-  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesPeriodesConsommation",
+  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation",
   "status": 200,
   "headers": {
-    "Content-Type": "text/json;charset=UTF-8"
+    "Content-Type": "text/html;charset=UTF-8"
   },
-  "body_file": "0005-response.json"
+  "body_file": "0005-response.bin"
 }

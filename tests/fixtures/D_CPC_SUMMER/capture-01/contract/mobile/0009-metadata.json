@@ -2,10 +2,10 @@
   "profile": "mobile",
   "sequence": 9,
   "request_method": "get",
-  "request_path": "/lsw/portail/en/group/clientele/portrait-de-consommation/resourceTelechargerPeriodesFacturation",
+  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesConsommationAnnuelles",
   "status": 200,
   "headers": {
-    "Content-Type": "text/csv;charset=ISO-8859-1"
+    "Content-Type": "text/json;charset=UTF-8"
   },
-  "body_file": "0009-response.csv"
+  "body_file": "0009-response.json"
 }

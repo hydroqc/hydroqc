@@ -3,6 +3,34 @@
   "results": [
     {
       "courant": {
+        "dateJourConso": "2026-11-09",
+        "zoneMessageHTMLQuot": null,
+        "consoRegQuot": 56.61,
+        "consoHautQuot": 0,
+        "consoTotalQuot": 56.61,
+        "codeConsoQuot": "R",
+        "tempMoyenneQuot": 0,
+        "codeTarifQuot": "D",
+        "affichageTarifFlexQuot": false,
+        "indTempTarifBiEnergieQuot": false,
+        "codeEvenementQuot": ""
+      },
+      "compare": {
+        "dateJourConso": "2025-11-10",
+        "zoneMessageHTMLQuot": null,
+        "consoRegQuot": 82.38,
+        "consoHautQuot": 0,
+        "consoTotalQuot": 82.38,
+        "codeConsoQuot": "R",
+        "tempMoyenneQuot": 0,
+        "codeTarifQuot": "D",
+        "affichageTarifFlexQuot": false,
+        "indTempTarifBiEnergieQuot": false,
+        "codeEvenementQuot": ""
+      }
+    },
+    {
+      "courant": {
         "dateJourConso": "2026-11-08",
         "zoneMessageHTMLQuot": null,
         "consoRegQuot": 64.82,
@@ -21,34 +49,6 @@
         "consoRegQuot": 82.73,
         "consoHautQuot": 0,
         "consoTotalQuot": 82.73,
-        "codeConsoQuot": "R",
-        "tempMoyenneQuot": 0,
-        "codeTarifQuot": "D",
-        "affichageTarifFlexQuot": false,
-        "indTempTarifBiEnergieQuot": false,
-        "codeEvenementQuot": ""
-      }
-    },
-    {
-      "courant": {
-        "dateJourConso": "2026-11-07",
-        "zoneMessageHTMLQuot": null,
-        "consoRegQuot": 41.65,
-        "consoHautQuot": 0,
-        "consoTotalQuot": 41.65,
-        "codeConsoQuot": "R",
-        "tempMoyenneQuot": null,
-        "codeTarifQuot": "D",
-        "affichageTarifFlexQuot": false,
-        "indTempTarifBiEnergieQuot": false,
-        "codeEvenementQuot": ""
-      },
-      "compare": {
-        "dateJourConso": "2025-11-08",
-        "zoneMessageHTMLQuot": null,
-        "consoRegQuot": 63.36,
-        "consoHautQuot": 0,
-        "consoTotalQuot": 63.36,
         "codeConsoQuot": "R",
         "tempMoyenneQuot": 0,
         "codeTarifQuot": "D",

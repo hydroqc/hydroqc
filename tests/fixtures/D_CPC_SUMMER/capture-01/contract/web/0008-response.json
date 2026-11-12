@@ -1,52 +1,112 @@
 {
-  "success": true,
-  "results": [
+  "offresDisponibles": [
+    "Chaine de bloc",
+    "OEA",
+    "OEA Serres",
+    "ENG_100H_2F_7J",
+    "ENG_100H_2F_5J",
+    "ENG_100H_1F_7J",
+    "ENG_100H_1F_5J",
+    "ENG_80H_2F_7J",
+    "ENG_80H_2F_5J",
+    "ENG_80H_1F_7J",
+    "ENG_80H_1F_5J",
+    "ENG_60H_2F_7J",
+    "ENG_60H_2F_5J",
+    "ENG_60H_1F_7J",
+    "ENG_60H_1F_5J",
+    "ENG_40H_2F_7J",
+    "ENG_40H_2F_5J",
+    "ENG_40H_1F_7J",
+    "ENG_40H_1F_5J",
+    "ENG_20H_2F_7J",
+    "ENG_20H_2F_5J",
+    "ENG_20H_1F_7J",
+    "ENG_20H_1F_5J",
+    "LAT_100H_5J",
+    "LAT_100H_7J",
+    "LAT_Signal_FDS",
+    "LAT_20H_5J",
+    "LAT_20H_7J",
+    "LAT_40H_5J",
+    "LAT_40H_7J",
+    "LAT_60H_5J",
+    "LAT_60H_7J",
+    "LAT_80H_5J",
+    "LAT_80H_7J",
+    "Credit hivernal Residentiel (CPC-D)",
+    "Credit hivernal Affaires (CPC-G)",
+    "Flex Residentiel (TPC-DPC)",
+    "Flex Affaires (TPC-GPC)",
+    "Essai_Mardis_Nov"
+  ],
+  "derniereExecution": [
+    "2026-11-11 19:41:27"
+  ],
+  "evenements": [
     {
-      "courant": {
-        "dateDebutAnnee": "2025-10-03",
-        "dateFinAnnee": "2026-10-02",
-        "nbJourCalendrierAnnee": 30,
-        "moyenneKwhJourAnnee": 82.7,
-        "consoRegAnnee": 30180,
-        "consoHautAnnee": 0,
-        "consoTotalAnnee": 30180,
-        "montantFactureAnnee": 0.01,
-        "moyenneDollarsJourAnnee": 0.01,
-        "isEligibleDRCV": false,
-        "codeTarifAnnee": "D",
-        "montantGainPerteDTversusBaseAnnee": 0,
-        "coutCentkWh": 0.01,
-        "zoneMsgHTMLAnneeSuiviDT": "",
-        "texteValeurChauffage": null,
-        "texteValeurClimatisation": null,
-        "tooltipIdChauffage": "fixture-tooltip",
-        "tooltipIdClimatisation": "fixture-tooltip",
-        "tooltipIdChauffageComparaison": "fixture-tooltip",
-        "tooltipIdClimatisationComparaison": "fixture-tooltip",
-        "montantChauffageAnnee": 0,
-        "montantClimatisationAnnee": 0,
-        "kwhChauffageAnnee": 9936,
-        "kwhClimatisationAnnee": 863
-      },
-      "compare": {
-        "dateDebutAnnee": "2024-10-03",
-        "dateFinAnnee": "2025-10-02",
-        "nbJourCalendrierAnnee": 30,
-        "moyenneKwhJourAnnee": 68.2,
-        "consoRegAnnee": 24911,
-        "consoHautAnnee": 0,
-        "consoTotalAnnee": 24911,
-        "montantFactureAnnee": 0.01,
-        "moyenneDollarsJourAnnee": 0.01,
-        "isEligibleDRCV": false,
-        "codeTarifAnnee": "D",
-        "montantGainPerteDTversusBaseAnnee": 0,
-        "montantChauffageAnnee": 0,
-        "montantClimatisationAnnee": 0,
-        "kwhChauffageAnnee": 8389,
-        "kwhClimatisationAnnee": 743,
-        "coutCentkWh": 0.01
-      }
+      "offre": "OEA",
+      "dateDebut": "2026-06-11T16:00:00-04:00",
+      "dateFin": "2026-06-11T19:00:00-04:00",
+      "plageHoraire": "PM",
+      "duree": "PT03H00MS",
+      "secteurClient": "Affaires"
+    },
+    {
+      "offre": "Chaine de bloc",
+      "dateDebut": "2026-06-11T16:00:00-04:00",
+      "dateFin": "2026-06-11T19:00:00-04:00",
+      "plageHoraire": "PM",
+      "duree": "PT03H00MS",
+      "secteurClient": "Affaires"
+    },
+    {
+      "offre": "OEA",
+      "dateDebut": "2026-06-12T17:00:00-04:00",
+      "dateFin": "2026-06-12T19:00:00-04:00",
+      "plageHoraire": "PM",
+      "duree": "PT02H00MS",
+      "secteurClient": "Affaires"
+    },
+    {
+      "offre": "Chaine de bloc",
+      "dateDebut": "2026-06-12T17:00:00-04:00",
+      "dateFin": "2026-06-12T19:00:00-04:00",
+      "plageHoraire": "PM",
+      "duree": "PT02H00MS",
+      "secteurClient": "Affaires"
+    },
+    {
+      "offre": "Chaine de bloc",
+      "dateDebut": "2026-07-02T13:00:00-04:00",
+      "dateFin": "2026-07-02T20:00:00-04:00",
+      "plageHoraire": "PM",
+      "duree": "PT07H00MS",
+      "secteurClient": "Affaires"
+    },
+    {
+      "offre": "OEA",
+      "dateDebut": "2026-07-02T13:00:00-04:00",
+      "dateFin": "2026-07-02T20:00:00-04:00",
+      "plageHoraire": "PM",
+      "duree": "PT07H00MS",
+      "secteurClient": "Affaires"
+    },
+    {
+      "offre": "Chaine de bloc",
+      "dateDebut": "2026-08-06T13:00:00-04:00",
+      "dateFin": "2026-08-06T19:00:00-04:00",
+      "plageHoraire": "PM",
+      "duree": "PT06H00MS",
+      "secteurClient": "Affaires"
+    },
+    {
+      "offre": "Essai_Mardis_Nov",
+      "dateDebut": "2026-11-03T16:00:00-05:00",
+      "dateFin": "2026-11-03T20:00:00-05:00",
+      "plageHoraire": "PM",
+      "duree": "PT04H00MS",
+      "secteurClient": "Affaires"
     }
   ]
 }

@@ -2,10 +2,10 @@
   "profile": "mobile",
   "sequence": 19,
   "request_method": "get",
-  "request_path": "/pan/web/api/v1/lieux-conso/etats/FIXTURE-LOCATION-001",
+  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesConsommationHoraires",
   "status": 200,
   "headers": {
-    "Content-Type": "application/json"
+    "Content-Type": "text/json;charset=UTF-8"
   },
   "body_file": "0019-response.json"
 }

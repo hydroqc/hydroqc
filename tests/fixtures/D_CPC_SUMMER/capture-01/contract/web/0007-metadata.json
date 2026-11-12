@@ -2,10 +2,10 @@
   "profile": "web",
   "sequence": 7,
   "request_method": "get",
-  "request_path": "/donnees-ouvertes/data/json/pointeshivernales.json",
+  "request_path": "/wsapi/web/prive/api/v3_0/tarificationDynamique/creditPointeCritique",
   "status": 200,
   "headers": {
-    "Content-Type": "text/plain"
+    "Content-Type": "application/json"
   },
   "body_file": "0007-response.json"
 }

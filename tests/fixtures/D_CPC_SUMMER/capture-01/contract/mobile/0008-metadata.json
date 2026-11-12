@@ -2,10 +2,10 @@
   "profile": "mobile",
   "sequence": 8,
   "request_method": "get",
-  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesConsommationAnnuelles",
+  "request_path": "/donnees-ouvertes/data/json/pointeshivernales.json",
   "status": 200,
   "headers": {
-    "Content-Type": "text/json;charset=UTF-8"
+    "Content-Type": "text/plain"
   },
   "body_file": "0008-response.json"
 }

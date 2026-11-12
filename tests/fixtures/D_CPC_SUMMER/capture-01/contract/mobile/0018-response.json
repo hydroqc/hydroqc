@@ -1,13 +1,16 @@
 {
   "success": true,
   "results": {
+    "codeTarif": "D",
+    "affichageTarifFlex": false,
+    "indTempTarifBiEnergieQuot": false,
     "dateJour": "2026-11-10",
     "echelleMinKwhHeureParJour": 0,
     "echelleMaxKwhHeureParJour": 16,
     "zoneMsgHTMLNonDispEnergie": null,
     "zoneMsgHTMLNonDispPuissance": "",
-    "indErreurJourneeEnergie": false,
-    "indErreurJourneePuissance": false,
+    "indErreurJourneeEnergie": true,
+    "indErreurJourneePuissance": true,
     "listeDonneesConsoEnergieHoraire": [
       {
         "heure": "00:00:00",
@@ -200,28 +203,28 @@
       },
       {
         "heure": "21:00:00",
-        "consoReg": 0.0,
+        "consoReg": 1.24,
         "consoHaut": 0,
-        "consoTotal": 0.0,
-        "codeConso": "N",
+        "consoTotal": 1.24,
+        "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       },
       {
         "heure": "22:00:00",
-        "consoReg": 0.0,
+        "consoReg": 1.14,
         "consoHaut": 0,
-        "consoTotal": 0.0,
-        "codeConso": "N",
+        "consoTotal": 1.14,
+        "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       },
       {
         "heure": "23:00:00",
-        "consoReg": 0.0,
+        "consoReg": 1.72,
         "consoHaut": 0,
-        "consoTotal": 0.0,
-        "codeConso": "N",
+        "consoTotal": 1.72,
+        "codeConso": "R",
         "codeEvemenentEnergie": "",
         "zoneMessageHTMLEnergie": null
       }

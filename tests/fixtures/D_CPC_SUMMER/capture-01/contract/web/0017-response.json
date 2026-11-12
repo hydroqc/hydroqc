@@ -9,8 +9,8 @@
     "echelleMaxKwhHeureParJour": 16,
     "zoneMsgHTMLNonDispEnergie": null,
     "zoneMsgHTMLNonDispPuissance": "",
-    "indErreurJourneeEnergie": false,
-    "indErreurJourneePuissance": false,
+    "indErreurJourneeEnergie": true,
+    "indErreurJourneePuissance": true,
     "listeDonneesConsoEnergieHoraire": [
       {
         "heure": "00:00:00",
