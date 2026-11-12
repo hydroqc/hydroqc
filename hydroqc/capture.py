@@ -502,7 +502,7 @@ async def run_contract_object_scenario(
             await result
         called_methods.append(f"{target_name}.{method_name}")
 
-    # Initialize data required by later operations before the dir()-discovered pass.
+    # Initialize contract data before reading the properties that depend on it.
     prerequisites = {
         "contract": ("get_info", "get_periods_info"),
         "contract.peak_handler": ("refresh_data", "refresh_open_data"),

@@ -84,5 +84,11 @@ async def test_full_d_cpc_scenario_replays(
         assert scenario.surface["methods"]
         assert scenario.surface["properties"]
         assert scenario.surface["subobjects"]
+        assert "contract.refresh_outages" in scenario.called_methods
+        assert "outages" in scenario.surface["properties"]
+        assert "next_outage" in scenario.surface["properties"]
+        assert any(
+            "/lieux-conso/etats/" in request_path for _, request_path in transport.calls
+        )
     finally:
         await client.close_session()
