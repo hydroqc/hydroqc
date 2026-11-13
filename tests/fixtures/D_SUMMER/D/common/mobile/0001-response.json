@@ -1,0 +1,14 @@
+[
+  {
+    "indEcActif": true,
+    "indFavori": false,
+    "nickname": "Fixture",
+    "noPartenaireDemandeur": "FIXTURE-APPLICANT-001",
+    "noPartenaireTitulaire": "FIXTURE-CUSTOMER-002",
+    "nom1Demandeur": "Fixture Applicant",
+    "nom1Titulaire": "Fixture Holder",
+    "nom2Demandeur": "",
+    "nom2Titulaire": "",
+    "typeRelation": "FIXTURE"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "profile": "web",
+  "sequence": 20,
+  "request_method": "get",
+  "request_path": "/pan/web/api/v1/lieux-conso/etats/FIXTURE-LOCATION-001",
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body_file": "0020-response.json"
+}

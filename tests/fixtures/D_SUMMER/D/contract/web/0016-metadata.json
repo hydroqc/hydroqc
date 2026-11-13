@@ -1,0 +1,11 @@
+{
+  "profile": "web",
+  "sequence": 16,
+  "request_method": "get",
+  "request_path": "/lsw/portail/fr/group/clientele/portrait-de-consommation/resourceObtenirDonneesConsommationHoraires",
+  "status": 200,
+  "headers": {
+    "Content-Type": "text/json;charset=UTF-8"
+  },
+  "body_file": "0016-response.json"
+}

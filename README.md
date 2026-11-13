@@ -2,6 +2,7 @@
 
 
 [![CI](https://github.com/hydroqc/hydroqc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hydroqc/hydroqc/actions/workflows/ci.yml)
+[![Fixture test coverage](https://codecov.io/gh/hydroqc/hydroqc/branch/main/graph/badge.svg)](https://codecov.io/gh/hydroqc/hydroqc)
 [![PyPI](https://img.shields.io/pypi/v/Hydro-Quebec-API-Wrapper.svg)](https://pypi.org/project/Hydro-Quebec-API-Wrapper/)
 
 
@@ -54,6 +55,121 @@ Thanks to [HD Énergie](https://hd.energy) for sponsoring developpement of the R
 
 ### Other plans
 We don't have anyone to test with. Please reach out to us if you have this plan and want to help!
+
+## Adding replay fixtures
+
+Replay fixtures let the regular test suite exercise contract scenarios without
+making live Hydro-Québec requests. To capture a new contract type, use a
+Hydro-Québec account that has that contract and run the capture command from the
+repository root:
+
+```bash
+python -m venv .venv  # skip if the virtual environment already exists
+.venv/bin/python -m pip install -e . -r test_requirements.txt
+.venv/bin/hydroqc-capture
+```
+
+Install `capture_requirements.txt` alongside the test dependencies to get the
+optional Presidio capture/anonymization dependencies and the small French spaCy
+model. These are not runtime dependencies of HydroQC. Keeping these requirements
+separate avoids conflicting with test-only packages such as Home Assistant
+stubs. In a development environment, run:
+
+```bash
+.venv/bin/python -m pip install -e . -r test_requirements.txt
+.venv/bin/python -m pip install -r capture_requirements.txt
+```
+
+The French model is installed with these packages; capture and fixture
+pseudonymization do not download a model at runtime.
+
+The command prompts for the username and, when needed, the password and MFA
+code. Once logged in, it lists the contracts available on the account and asks
+which one to capture. Pass `--contract <contract-number>` to skip that prompt.
+
+For a contract captured during its winter period, add `--winter-period` so its
+fixtures are kept separately from non-winter data:
+
+```bash
+.venv/bin/hydroqc-capture --contract <contract-number> --winter-period
+```
+
+If the virtual environment is already active, use `hydroqc-capture` instead of
+`.venv/bin/hydroqc-capture`. It captures both the web and mobile API profiles
+and runs the contract operations discovered by the capture script. At the end it
+asks whether to keep the saved sessions (tokens and cookies) for the next
+capture or to purge them.
+
+After a successful capture, the script pseudonymizes the responses and installs
+them automatically under `tests/fixtures/`:
+
+```text
+tests/fixtures/
+  DPC_SUMMER/
+    capture-01/
+      scenario.json
+      common/               # this capture's contract-selection responses
+        web/
+        mobile/
+      contract/             # this capture's rate-specific responses
+        web/
+        mobile/
+  D_CPC_SUMMER/
+    capture-01/
+      ...
+```
+
+The outer directory is named from the captured rate and option, joined by an
+underscore when an option exists, then suffixed with `_SUMMER` or `_WINTER`
+(for example, `D_CPC_SUMMER` or `M_GDP_WINTER`). Each capture has its own
+neutral fixture-set name, such as `capture-01`; its `common` selection responses
+stay with that set instead of being shared or overwritten by another capture.
+After capturing, the command lists existing sets and lets you replace one (with
+a separate confirmation) or create a new one. New names must be neutral and
+must not contain personal or contract-identifying information.
+
+The same choice can be made explicitly on the command line. Give a new name to
+add a separate set, or add `--replace-fixture` to replace that named set:
+
+```bash
+.venv/bin/hydroqc-capture --fixture-name capture-02
+.venv/bin/hydroqc-capture --fixture-name capture-01 --replace-fixture
+```
+
+An existing set is never replaced implicitly. The `--winter-period` flag selects
+the `_WINTER` suffix and records
+`"winter_period": true` in its `scenario.json`; without the flag, the scenario
+gets a `_SUMMER` suffix and the field is `false`. This works with any rate and
+option, including G and M: for example, `G_SUMMER` / `G_WINTER` or
+`M_GDP_SUMMER` / `M_GDP_WINTER`. The separate folders keep each season's
+responses apart.
+
+The capture pseudonymizes customer, account, contract, location, and contact
+details. It preserves consumption readings and their dates, so these are
+pseudonymized fixtures—not fully anonymized data—and should still be handled
+carefully. Monetary amounts are synthesized. OAuth token responses are not
+installed as fixtures. On success, the sensitive raw capture is deleted. Do
+not use `--keep-raw` for a normal fixture contribution, and never commit or
+share a raw capture. If capture fails, it prints the location of the raw files
+for local diagnosis; remove them securely when finished.
+
+Add one full scenario test for each contract type in `tests/scenarios/`, using
+`tests/scenarios/test_d_cpc.py` as the template. Parameterize the test over
+`web` and `mobile`, load the selected fixture set's `common` responses followed
+by its `contract` responses, and replay the complete authenticated hierarchy
+through `run_webuser_contract_scenario` (`WebUser → Customer → Account →
+Contract`). Assert the expected rate and option, and assert that the replay
+transport consumed every recorded response. If a contract type has multiple
+fixture sets, the scenario test discovers and replays each set. Contract
+fixtures without the `infoCompte` responses needed for the authenticated
+hierarchy must be recaptured before they can run this full scenario.
+
+Run the new scenario without network access, then run all safe local tests:
+
+```bash
+.venv/bin/python -m pytest -q tests/scenarios/test_<scenario>.py
+.venv/bin/python -m pytest -q tests/unit tests/scenarios
+```
 
 ## Documentation
 

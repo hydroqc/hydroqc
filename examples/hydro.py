@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Example showing authenticated access to Hydro-Québec account data."""
 import asyncio
 import os
 from datetime import date
@@ -6,7 +7,6 @@ from datetime import date
 from hydroqc.consts import LoginStatus
 from hydroqc.error import HydroQcMFAInvalidCodeError
 from hydroqc.webuser import WebUser
-
 
 USERNAME = os.getenv("hydroQcUsername")
 PASSWORD = os.getenv("hydroQcPassword")
@@ -35,6 +35,7 @@ async def login() -> None:
 
 
 async def async_func():
+    """Fetch and display example customer, contract, and consumption data."""
     await login()
     await webuser.get_info()
 

@@ -1,0 +1,11 @@
+{
+  "profile": "mobile",
+  "sequence": 6,
+  "request_method": "get",
+  "request_path": "/conso/portraitweb/api/v3_0/conso",
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body_file": "0006-response.json"
+}

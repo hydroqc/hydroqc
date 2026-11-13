@@ -1,0 +1,189 @@
+{
+  "dateTestAffichageWeb": "2026-11-11T05:00:00.000Z",
+  "evenementsPointe": [
+    {
+      "dateDebutPeriodeHiver": "2025-12-01T05:00:00.000Z",
+      "dateFinPeriodeHiver": "2026-03-31T04:00:00.000Z",
+      "evenementsPointe": [
+        {
+          "codeConso": "D",
+          "consoReelle": 4.05,
+          "dateEvenement": "2026-03-18T04:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.16,
+          "dateEvenement": "2026-03-03T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.88,
+          "dateEvenement": "2026-02-10T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.08,
+          "dateEvenement": "2026-02-08T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.32,
+          "dateEvenement": "2026-02-01T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.55,
+          "dateEvenement": "2026-01-26T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.17,
+          "dateEvenement": "2026-01-26T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.52,
+          "dateEvenement": "2026-01-25T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.4,
+          "dateEvenement": "2026-01-25T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.58,
+          "dateEvenement": "2026-01-24T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.83,
+          "dateEvenement": "2026-01-21T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.72,
+          "dateEvenement": "2026-01-05T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.62,
+          "dateEvenement": "2026-01-05T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.32,
+          "dateEvenement": "2025-12-14T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 4.12,
+          "dateEvenement": "2025-12-14T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.79,
+          "dateEvenement": "2025-12-09T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.9,
+          "dateEvenement": "2025-12-08T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.76,
+          "dateEvenement": "2025-12-08T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        },
+        {
+          "codeConso": "D",
+          "consoReelle": 3.86,
+          "dateEvenement": "2025-12-03T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": false
+        }
+      ]
+    }
+  ],
+  "periodesHiver": [
+    {
+      "dateDebut": "2025-12-01T05:00:00.000Z",
+      "dateFin": "2026-03-31T04:00:00.000Z",
+      "dateMaj": "2026-03-31T04:00:00.000Z",
+      "hrsCritiquesAppelees": "76",
+      "hrsCritiquesAppeleesMax": "120",
+      "montantEconPerteVSTarifBase": 0.01
+    },
+    {
+      "dateDebut": "2024-12-01T05:00:00.000Z",
+      "dateFin": "2025-03-31T04:00:00.000Z",
+      "dateMaj": "2025-03-31T04:00:00.000Z",
+      "hrsCritiquesAppelees": "86",
+      "hrsCritiquesAppeleesMax": "100",
+      "montantEconPerteVSTarifBase": 0.01
+    },
+    {
+      "dateDebut": "2023-12-01T05:00:00.000Z",
+      "dateFin": "2024-03-31T04:00:00.000Z",
+      "dateMaj": "2024-03-31T04:00:00.000Z",
+      "hrsCritiquesAppelees": "41",
+      "hrsCritiquesAppeleesMax": "100",
+      "montantEconPerteVSTarifBase": 0.01
+    }
+  ]
+}

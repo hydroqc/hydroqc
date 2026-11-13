@@ -1,0 +1,264 @@
+{
+  "adresseCourriel": "fixture@example.invalid",
+  "adresseLieuConso1": "123 rue Exemple",
+  "adresseLieuConso2": "Appartement 1",
+  "codeAdhesionCPC": "A",
+  "codeEligibiliteCPC": "000",
+  "codeUsageContrat": "R",
+  "cumulPeriodesEffacementsHivers": [
+    {
+      "consoEffacee": 423.37,
+      "dateDebutPeriodeHiver": "2023-12-01T05:00:00.000Z",
+      "montantEfface": 0.01
+    },
+    {
+      "consoEffacee": 973.11,
+      "dateDebutPeriodeHiver": "2024-12-01T05:00:00.000Z",
+      "montantEfface": 0.01
+    }
+  ],
+  "dateDebutAdhesionCPC": "2022-05-13T04:00:00.000Z",
+  "dateFinAdhesionCPC": "9999-12-31T05:00:00.000Z",
+  "etatMontantEffaceeProjete": "0.01",
+  "indAppelRequis": false,
+  "infoSimulation": [],
+  "montantEffaceProjete": "0.01",
+  "nomMarketingActuel": "Fixture",
+  "nomMarketingBase": "Fixture",
+  "nomMarketingCPC": "Fixture",
+  "optionTarifActuel": "CPC",
+  "optionTarifBase": "",
+  "optionTarifCPC": "CPC",
+  "periodesEffacementsHivers": [
+    {
+      "dateDebutPeriodeHiver": "2025-12-01T05:00:00.000Z",
+      "dateFinPeriodeHiver": "2026-03-31T04:00:00.000Z",
+      "periodesEffacementHiver": [
+        {
+          "codeConso": "C",
+          "consoEffacee": 15.78,
+          "consoReelle": 5.66,
+          "consoReference": 21.44,
+          "dateEffacement": "2026-03-18T04:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 9.91,
+          "consoReelle": 5.35,
+          "consoReference": 15.26,
+          "dateEffacement": "2026-03-03T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 32.02,
+          "consoReelle": 5.96,
+          "consoReference": 37.98,
+          "dateEffacement": "2026-02-08T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 36.17,
+          "consoReelle": 4.06,
+          "consoReference": 40.23,
+          "dateEffacement": "2026-02-01T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 39.32,
+          "consoReelle": 6.6,
+          "consoReference": 45.92,
+          "dateEffacement": "2026-01-26T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 34.06,
+          "consoReelle": 4.91,
+          "consoReference": 38.97,
+          "dateEffacement": "2026-01-26T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 30.02,
+          "consoReelle": 5.57,
+          "consoReference": 35.59,
+          "dateEffacement": "2026-01-25T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 35.13,
+          "consoReelle": 6.87,
+          "consoReference": 42.0,
+          "dateEffacement": "2026-01-25T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 36.93,
+          "consoReelle": 6.07,
+          "consoReference": 43.0,
+          "dateEffacement": "2026-01-24T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 35.5,
+          "consoReelle": 4.71,
+          "consoReference": 40.21,
+          "dateEffacement": "2026-01-21T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 24.05,
+          "consoReelle": 6.51,
+          "consoReference": 30.56,
+          "dateEffacement": "2026-01-05T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 26.0,
+          "consoReelle": 5.39,
+          "consoReference": 31.39,
+          "dateEffacement": "2026-01-05T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 27.17,
+          "consoReelle": 4.01,
+          "consoReference": 31.18,
+          "dateEffacement": "2026-01-04T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 13.65,
+          "consoReelle": 5.21,
+          "consoReference": 18.86,
+          "dateEffacement": "2025-12-14T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 23.51,
+          "consoReelle": 3.72,
+          "consoReference": 27.23,
+          "dateEffacement": "2025-12-14T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 31.18,
+          "consoReelle": 6.24,
+          "consoReference": 37.42,
+          "dateEffacement": "2025-12-09T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 26.44,
+          "consoReelle": 11.71,
+          "consoReference": 38.15,
+          "dateEffacement": "2025-12-08T05:00:00.000Z",
+          "heureDebut": "16:00:00",
+          "heureFin": "20:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 28.69,
+          "consoReelle": 5.25,
+          "consoReference": 33.94,
+          "dateEffacement": "2025-12-08T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 35.8,
+          "consoReelle": 12.34,
+          "consoReference": 48.14,
+          "dateEffacement": "2025-12-05T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        },
+        {
+          "codeConso": "C",
+          "consoEffacee": 9.72,
+          "consoReelle": 5.54,
+          "consoReference": 15.26,
+          "dateEffacement": "2025-12-03T05:00:00.000Z",
+          "heureDebut": "06:00:00",
+          "heureFin": "10:00:00",
+          "indFacture": true,
+          "montantEffacee": 0.01
+        }
+      ]
+    }
+  ],
+  "success": true,
+  "tarifActuel": "D",
+  "tarifBase": "D",
+  "tarifCPC": "D"
+}

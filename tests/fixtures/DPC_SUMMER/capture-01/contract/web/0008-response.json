@@ -1,0 +1,52 @@
+{
+  "success": true,
+  "results": [
+    {
+      "courant": {
+        "dateDebutAnnee": "2025-11-01",
+        "dateFinAnnee": "2026-11-02",
+        "nbJourCalendrierAnnee": 30,
+        "moyenneKwhJourAnnee": 75.7,
+        "consoRegAnnee": 27776,
+        "consoHautAnnee": 0,
+        "consoTotalAnnee": 27776,
+        "montantFactureAnnee": 0.01,
+        "moyenneDollarsJourAnnee": 0.01,
+        "isEligibleDRCV": false,
+        "codeTarifAnnee": "DPC",
+        "montantGainPerteDTversusBaseAnnee": 0,
+        "coutCentkWh": 0.01,
+        "zoneMsgHTMLAnneeSuiviDT": "",
+        "texteValeurChauffage": null,
+        "texteValeurClimatisation": null,
+        "tooltipIdChauffage": "fixture-tooltip",
+        "tooltipIdClimatisation": "fixture-tooltip",
+        "tooltipIdChauffageComparaison": "fixture-tooltip",
+        "tooltipIdClimatisationComparaison": "fixture-tooltip",
+        "montantChauffageAnnee": 0,
+        "montantClimatisationAnnee": 0,
+        "kwhChauffageAnnee": 5104,
+        "kwhClimatisationAnnee": 606
+      },
+      "compare": {
+        "dateDebutAnnee": "2024-11-01",
+        "dateFinAnnee": "2025-10-31",
+        "nbJourCalendrierAnnee": 30,
+        "moyenneKwhJourAnnee": 62.7,
+        "consoRegAnnee": 22880,
+        "consoHautAnnee": 0,
+        "consoTotalAnnee": 22880,
+        "montantFactureAnnee": 0.01,
+        "moyenneDollarsJourAnnee": 0.01,
+        "isEligibleDRCV": false,
+        "codeTarifAnnee": "DPC",
+        "montantGainPerteDTversusBaseAnnee": 0,
+        "montantChauffageAnnee": 0,
+        "montantClimatisationAnnee": 0,
+        "kwhChauffageAnnee": 3944,
+        "kwhClimatisationAnnee": 781,
+        "coutCentkWh": 0.01
+      }
+    }
+  ]
+}
