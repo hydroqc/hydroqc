@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from hydroqc.capture_fixtures import (
+from hydroqc.tools.capture_fixtures import (
     CapturePseudonymizer,
     _audit_staging_tree,
     anonymize_capture_to_fixtures,

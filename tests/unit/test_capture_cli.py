@@ -6,8 +6,10 @@ from typing import Any, cast
 
 import pytest
 
-import hydroqc.capture
-from hydroqc.capture import (
+import hydroqc.tools.capture
+from hydroqc.hydro_api.client import HydroClient
+from hydroqc.hydro_api.consts import AUTH_CLIENT_MOBILE, AUTH_CLIENT_WEB
+from hydroqc.tools.capture import (
     CapturableContract,
     list_available_contracts,
     parse_args,
@@ -16,17 +18,15 @@ from hydroqc.capture import (
     prompt_session_cleanup,
     purge_sessions,
 )
-from hydroqc.hydro_api.client import HydroClient
-from hydroqc.hydro_api.consts import AUTH_CLIENT_MOBILE, AUTH_CLIENT_WEB
 
 
 def _make_sessions(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, username: str
 ) -> list[Path]:
     """Point the session directory at a temp folder and create both sessions."""
-    monkeypatch.setattr(hydroqc.capture, "SESSION_DIR", tmp_path)
+    monkeypatch.setattr(hydroqc.tools.capture, "SESSION_DIR", tmp_path)
     paths = [
-        hydroqc.capture._session_path(
+        hydroqc.tools.capture._session_path(
             profile, username
         )  # pylint: disable=protected-access
         for profile in (AUTH_CLIENT_WEB, AUTH_CLIENT_MOBILE)
@@ -52,7 +52,9 @@ def _patch_available(
     async def fake_available(_client: HydroClient) -> list[CapturableContract]:
         return contracts
 
-    monkeypatch.setattr(hydroqc.capture, "list_available_contracts", fake_available)
+    monkeypatch.setattr(
+        hydroqc.tools.capture, "list_available_contracts", fake_available
+    )
 
 
 def _patch_inputs(monkeypatch: pytest.MonkeyPatch, *values: str) -> None:
@@ -277,7 +279,7 @@ def test_purge_sessions_ignores_missing_files(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Report nothing to delete when no session was saved."""
-    monkeypatch.setattr(hydroqc.capture, "SESSION_DIR", tmp_path)
+    monkeypatch.setattr(hydroqc.tools.capture, "SESSION_DIR", tmp_path)
 
     assert not purge_sessions("user")
 

@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from hydroqc.capture import run_webuser_contract_scenario
 from hydroqc.hydro_api.client import HydroClient
+from hydroqc.tools.capture import run_webuser_contract_scenario
 
 from .fixture_replay import FixtureReplayTransport
 from .scenario_helpers import freeze_hydroqc_clock

@@ -16,11 +16,6 @@ from typing import Any
 
 from hydroqc import contract as contract_module
 from hydroqc.account import Account
-from hydroqc.capture_fixtures import (
-    anonymize_capture_to_fixtures,
-    install_public_capture_to_fixtures,
-    validate_fixture_name,
-)
 from hydroqc.consts import LoginStatus
 from hydroqc.contract.common import Contract
 from hydroqc.customer import Customer
@@ -28,6 +23,11 @@ from hydroqc.error import HydroQcError
 from hydroqc.hydro_api.client import HydroClient
 from hydroqc.hydro_api.consts import AUTH_CLIENT_MOBILE, AUTH_CLIENT_WEB
 from hydroqc.public_client import PublicClient
+from hydroqc.tools.capture_fixtures import (
+    anonymize_capture_to_fixtures,
+    install_public_capture_to_fixtures,
+    validate_fixture_name,
+)
 from hydroqc.types.contract import ContractTyping
 from hydroqc.utils import EST_TIMEZONE
 from hydroqc.webuser import WebUser
