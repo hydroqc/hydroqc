@@ -295,6 +295,8 @@ async def test_expired_session_reports_mfa_required() -> None:
 
     with pytest.raises(HydroQcMFARequiredError):
         await client._get_access_token()
+    # Nobody is there to read a code: the portal must not be asked to send one.
+    assert not transport.called(SEND_CODE_URL)
 
     await client.close_session()
 
