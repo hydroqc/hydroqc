@@ -62,10 +62,12 @@ class SubTestContractDPC:  # pylint: disable=too-many-statements
         assert isinstance(contract.critical_called_hours, int)
         assert contract.critical_called_hours >= 0
 
-        assert isinstance(contract.max_critical_called_hours, int)
-        assert contract.max_critical_called_hours >= 0
-
-        assert contract.max_critical_called_hours >= contract.critical_called_hours
+        # The maximum is published by Hydro-Québec with the winter period; it
+        # may be None before the season starts.
+        if contract.max_critical_called_hours is not None:
+            assert isinstance(contract.max_critical_called_hours, int)
+            assert contract.max_critical_called_hours >= 0
+            assert contract.max_critical_called_hours >= contract.critical_called_hours
 
         if contract.amount_saved_vs_base_rate is not None:
             assert isinstance(contract.amount_saved_vs_base_rate, float)

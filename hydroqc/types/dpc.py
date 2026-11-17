@@ -9,6 +9,9 @@ class DPCPeriodeHiverTyping(TypedDict, total=False):
 
     Note: montantEconPerteVSTarifBase may not be available in the first year of Flex D
     as it requires comparison data from previous Rate D billing.
+
+    Note: hrsCritiquesAppeleesMax may be absent for the upcoming winter period
+    until Hydro-Québec publishes it, so it must be read with ``.get()``.
     """
 
     dateDebut: str
