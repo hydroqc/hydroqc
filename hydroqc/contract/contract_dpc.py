@@ -155,9 +155,22 @@ class ContractDPC(ContractResidential):
 
     @property
     @check_dpc_data_present
-    def max_critical_called_hours(self) -> int:
-        """Get max number of critical hours."""
-        return int(self._dpc_data["periodesHiver"][0]["hrsCritiquesAppeleesMax"])
+    def max_critical_called_hours(self) -> int | None:
+        """Get max number of critical hours.
+
+        Returns None when Hydro-Québec has not published the field yet, which
+        happens for the upcoming winter period before it starts: the key is
+        optional in the API payload and must not raise KeyError.
+        """
+        winter = self._dpc_data["periodesHiver"][0]
+        max_hours = winter.get("hrsCritiquesAppeleesMax")
+        if max_hours is None:
+            self._logger.debug(
+                "No maximum critical hours in DPC data; it is probably not "
+                "published yet for the current winter period"
+            )
+            return None
+        return int(max_hours)
 
     @property
     @check_dpc_data_present
