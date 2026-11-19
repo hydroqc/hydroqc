@@ -28,7 +28,7 @@ jobs:
       - name: Install tox
         run: python -m pip install tox
       - name: Run quality checks
-        run: tox -e pylint,flake8,pydocstyle,typing,black --parallel auto
+        run: tox -e pylint,flake8,pydocstyle,typing,black
       - name: Upload quality reports
         if: always()
         uses: actions/upload-artifact@v4
