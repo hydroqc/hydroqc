@@ -11,7 +11,7 @@ import pytest
 from hydroqc.hydro_api.consts import OPEN_DATA_PEAK_URL
 from hydroqc.public_client import PublicClient
 
-from .fixture_replay import FixtureReplayTransport
+from .fixture_replay import FixtureReplayTransport, FixtureResponse
 from .scenario_helpers import freeze_hydroqc_clock
 
 FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures"
@@ -54,8 +54,19 @@ async def _replay_public_client(
         rate_code=rate_code,
         rate_option_code=rate_option_code,
     )
+
+    async def fixture_aware_request(url: str, method: str, **kwargs: Any) -> Any:
+        """Serve the maintenance feed locally and replay captured calls."""
+        if urlsplit(str(url)).path == "/config/indispo/indisponibilites.json":
+            return FixtureResponse(
+                {"status": 200, "headers": {"Content-Type": "application/json"}},
+                b'{"libreService": [], "appMobileAuthentifiee": []}',
+                str(url),
+            )
+        return await transport.request(url, method, **kwargs)
+
     # pylint: disable=protected-access
-    client._hydro_client.http_request = transport.request  # type: ignore[assignment]
+    client._hydro_client.http_request = fixture_aware_request  # type: ignore[assignment]
     try:
         assert await client.check_hq_portal_status()
         await client.fetch_peak_data()
