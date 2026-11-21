@@ -1,0 +1,17 @@
+{
+  "codeEtatPeriodeCourante": "000",
+  "dateDebutPeriode": "2026-11-03",
+  "dateFinPeriode": "2027-01-04",
+  "dateDerniereLecturePeriode": "2026-11-10",
+  "nbJourLecturePeriode": 10,
+  "nbJourPrevuPeriode": 30,
+  "montantFacturePeriode": 0.01,
+  "montantProjetePeriode": 0.01,
+  "indContratPuissance": false,
+  "adresseLieuConsoPartie1": "123 rue Exemple",
+  "adresseLieuConsoPartie2": "Appartement 1",
+  "codeTarif": "DPC",
+  "codeOptionTarif": "",
+  "listePeriodePointeCritiqueAujourdhui": null,
+  "listePeriodePointeCritiqueDemain": null
+}

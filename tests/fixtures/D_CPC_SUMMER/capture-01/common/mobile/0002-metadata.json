@@ -1,0 +1,11 @@
+{
+  "profile": "mobile",
+  "sequence": 2,
+  "request_method": "get",
+  "request_path": "/wsapi/mobile/prive/api/v3_0/partenaires/infoCompte",
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body_file": "0002-response.json"
+}

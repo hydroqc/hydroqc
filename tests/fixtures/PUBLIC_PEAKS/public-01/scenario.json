@@ -1,0 +1,14 @@
+{
+  "fixture_name": "public-01",
+  "reference_date": "2026-11-11",
+  "clients": [
+    {
+      "rate": "DPC",
+      "option": ""
+    },
+    {
+      "rate": "D",
+      "option": "CPC"
+    }
+  ]
+}

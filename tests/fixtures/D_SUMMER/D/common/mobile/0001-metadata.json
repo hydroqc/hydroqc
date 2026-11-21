@@ -1,0 +1,11 @@
+{
+  "profile": "mobile",
+  "sequence": 1,
+  "request_method": "get",
+  "request_path": "/wsapi/mobile/prive/api/v1_0/relations",
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body_file": "0001-response.json"
+}

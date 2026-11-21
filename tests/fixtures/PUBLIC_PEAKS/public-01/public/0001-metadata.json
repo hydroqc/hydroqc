@@ -1,0 +1,11 @@
+{
+  "profile": "public",
+  "sequence": 1,
+  "request_method": "get",
+  "request_path": "/portail/fr/group/clientele/gerer-mon-compte",
+  "status": 200,
+  "headers": {
+    "Content-Type": "text/html"
+  },
+  "body_file": "0001-response.txt"
+}

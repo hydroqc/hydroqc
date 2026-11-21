@@ -39,10 +39,10 @@ hydroqc.customer module
    :undoc-members:
    :show-inheritance:
 
-hydroqc.diagnostic module
--------------------------
+hydroqc.tools.diagnostic module
+--------------------------------
 
-.. automodule:: hydroqc.diagnostic
+.. automodule:: hydroqc.tools.diagnostic
    :members:
    :undoc-members:
    :show-inheritance:

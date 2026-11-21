@@ -44,6 +44,9 @@ repos:
   hooks:
   - id: mypy
     args: [--strict, --pretty, --show-error-codes]
+    exclude: ^(docs/source/conf\.py|examples/hydro\.py|\.github/scripts/home_assistant_versions\.py|tests/scenarios/test_dt\.py)$
+    pass_filenames: false
+    entry: mypy --strict --pretty --show-error-codes --disable-error-code import-not-found --disable-error-code unused-ignore hydroqc/ tests/
     additional_dependencies:
       - "types-pytz==2025.2.0.20251108"
       - "types-PyYAML==6.0.12.20260724"

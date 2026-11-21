@@ -1,0 +1,61 @@
+{
+  "success": true,
+  "results": [
+    {
+      "courant": {
+        "dateJourConso": "2026-11-09",
+        "zoneMessageHTMLQuot": null,
+        "consoRegQuot": 10.49,
+        "consoHautQuot": 0,
+        "consoTotalQuot": 10.49,
+        "codeConsoQuot": "R",
+        "tempMoyenneQuot": 0,
+        "codeTarifQuot": "D",
+        "affichageTarifFlexQuot": false,
+        "indTempTarifBiEnergieQuot": false,
+        "codeEvenementQuot": ""
+      },
+      "compare": {
+        "dateJourConso": "2025-11-10",
+        "zoneMessageHTMLQuot": null,
+        "consoRegQuot": 19.85,
+        "consoHautQuot": 0,
+        "consoTotalQuot": 19.85,
+        "codeConsoQuot": "R",
+        "tempMoyenneQuot": 0,
+        "codeTarifQuot": "D",
+        "affichageTarifFlexQuot": false,
+        "indTempTarifBiEnergieQuot": false,
+        "codeEvenementQuot": ""
+      }
+    },
+    {
+      "courant": {
+        "dateJourConso": "2026-11-08",
+        "zoneMessageHTMLQuot": null,
+        "consoRegQuot": 5.93,
+        "consoHautQuot": 0,
+        "consoTotalQuot": 5.93,
+        "codeConsoQuot": "R",
+        "tempMoyenneQuot": 0,
+        "codeTarifQuot": "D",
+        "affichageTarifFlexQuot": false,
+        "indTempTarifBiEnergieQuot": false,
+        "codeEvenementQuot": ""
+      },
+      "compare": {
+        "dateJourConso": "2025-11-09",
+        "zoneMessageHTMLQuot": null,
+        "consoRegQuot": 22.41,
+        "consoHautQuot": 0,
+        "consoTotalQuot": 22.41,
+        "codeConsoQuot": "R",
+        "tempMoyenneQuot": 0,
+        "codeTarifQuot": "D",
+        "affichageTarifFlexQuot": false,
+        "indTempTarifBiEnergieQuot": false,
+        "codeEvenementQuot": ""
+      }
+    }
+  ]
+}

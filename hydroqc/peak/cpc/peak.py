@@ -5,12 +5,12 @@ import datetime
 from hydroqc.peak.basepeak import BasePeak
 from hydroqc.peak.consts import DEFAULT_PRE_HEAT_DURATION
 from hydroqc.peak.cpc.consts import (
-    DEFAULT_MORNING_ANCHOR_DURATION,
-    DEFAULT_MORNING_ANCHOR_START_OFFSET,
     DEFAULT_EVENING_ANCHOR_DURATION,
     DEFAULT_EVENING_ANCHOR_START_OFFSET,
-    DEFAULT_MORNING_PEAK_START,
+    DEFAULT_MORNING_ANCHOR_DURATION,
+    DEFAULT_MORNING_ANCHOR_START_OFFSET,
     DEFAULT_MORNING_PEAK_END,
+    DEFAULT_MORNING_PEAK_START,
 )
 from hydroqc.timerange import TimeRange
 from hydroqc.types import CriticalPeakDataTyping

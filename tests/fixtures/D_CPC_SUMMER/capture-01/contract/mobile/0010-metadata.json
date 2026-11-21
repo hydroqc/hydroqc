@@ -1,0 +1,11 @@
+{
+  "profile": "mobile",
+  "sequence": 10,
+  "request_method": "get",
+  "request_path": "/lsw/portail/en/group/clientele/portrait-de-consommation/resourceTelechargerPeriodesFacturation",
+  "status": 200,
+  "headers": {
+    "Content-Type": "text/csv;charset=ISO-8859-1"
+  },
+  "body_file": "0010-response.csv"
+}

@@ -1,0 +1,11 @@
+{
+  "profile": "web",
+  "sequence": 1,
+  "request_method": "post",
+  "request_path": "/wsapi/web/prive/api/v3_0/partenaires/contrats",
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body_file": "0001-response.json"
+}

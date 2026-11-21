@@ -29,7 +29,7 @@ hydroqc.hydro\_api.consts module
    :show-inheritance:
 
 hydroqc.hydro\_api.mfa module
-----------------------------
+-----------------------------
 
 .. automodule:: hydroqc.hydro_api.mfa
    :members:

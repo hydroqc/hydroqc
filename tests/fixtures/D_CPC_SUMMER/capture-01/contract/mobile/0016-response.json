@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "results": [
+    {
+      "courant": {
+        "dateJourConso": "2026-11-11",
+        "zoneMessageHTMLQuot": null,
+        "consoRegQuot": 57.53,
+        "consoHautQuot": 0,
+        "consoTotalQuot": 57.53,
+        "codeConsoQuot": "R",
+        "tempMoyenneQuot": 0,
+        "codeTarifQuot": "D",
+        "affichageTarifFlexQuot": false,
+        "indTempTarifBiEnergieQuot": false,
+        "codeEvenementQuot": ""
+      },
+      "compare": {
+        "dateJourConso": "2025-11-12",
+        "zoneMessageHTMLQuot": null,
+        "consoRegQuot": 90.84,
+        "consoHautQuot": 0,
+        "consoTotalQuot": 90.84,
+        "codeConsoQuot": "R",
+        "tempMoyenneQuot": 0,
+        "codeTarifQuot": "D",
+        "affichageTarifFlexQuot": false,
+        "indTempTarifBiEnergieQuot": false,
+        "codeEvenementQuot": ""
+      }
+    }
+  ]
+}

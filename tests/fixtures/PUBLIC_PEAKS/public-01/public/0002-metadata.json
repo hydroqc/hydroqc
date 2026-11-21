@@ -1,0 +1,11 @@
+{
+  "profile": "public",
+  "sequence": 2,
+  "request_method": "get",
+  "request_path": "/donnees-ouvertes/data/json/pointeshivernales.json",
+  "status": 200,
+  "headers": {
+    "Content-Type": "text/plain"
+  },
+  "body_file": "0002-response.txt"
+}

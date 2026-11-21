@@ -292,7 +292,7 @@ def test_verification_challenge_from_page() -> None:
 
 
 def test_display_control_requests_match() -> None:
-    """SendCode and VerifyCode POST the form B2C's display control expects."""
+    """Sends and verifies codes using the form B2C's display control expects."""
     page = B2CPage.from_html(MFA_PAGE_HTML)
     challenge = MFAChallenge.from_page(
         b2c_url(f"{COMBINED_CONFIRMED_URL}?tx=tx-1&p=B2C_1A_PRD_signup_signin"),
@@ -400,7 +400,6 @@ async def test_cookie_state_round_trip() -> None:
 @pytest.mark.asyncio(loop_scope="module")
 async def test_new_login_keeps_the_sso_cookie() -> None:
     """A fresh login drops the stale transaction cookies but not the SSO one."""
-
     jar = aiohttp.CookieJar(quote_cookie=False, unsafe=True)
     url = yarl.URL("https://connexion.solutions.hydroquebec.com/")
     jar.update_cookies(
@@ -423,7 +422,6 @@ async def test_new_login_keeps_the_sso_cookie() -> None:
 @pytest.mark.asyncio(loop_scope="module")
 async def test_session_state_round_trip() -> None:
     """A session exported by one client restores the token and cookies."""
-
     source = build_client(build_plain_login())
     assert await source.login() is LoginStatus.SUCCESS
     assert source._cookie_jar is not None
